@@ -13,14 +13,14 @@
 | :--- | :--- |
 | **Mr. Thang Saoly** | Architecture, Player Physics & Gameplay Systems |
 | **Mr. Kheng Sokthearith** | Level Design, Platform Mechanics & Hazards |
-| **Mr. Tiek Chhunhour** | Hazard AI (Crocodile), Water Dynamics & VFX |
+| **Mr. Tiek Chhunhour** | Hazard AI (Shark), Water Dynamics & VFX |
 | **Mr. Yeat David** | UI/HUD, Game State Management & Audio/Polish |
 
 ---
 
 ## 🌊 Game Overview
 
-A catastrophic flash flood hits the neighborhood during an intense storm. The nearby river breaks its banks, bursting open the basement doors of a multi-story residential building. Dangerous floodwater rushes into the lower levels, bringing an aggressive crocodile with it.
+A catastrophic flash flood hits the neighborhood during an intense storm. The nearby river breaks its banks, bursting open the basement doors of a multi-story residential building. Dangerous floodwater rushes into the lower levels, bringing an aggressive shark with it.
 
 As the homeowner trapped inside, your only salvation is vertical escape. With every passing second, the water level steadily rises from room to room. You must leap across floating furniture, unstable bookshelves, crumbling attic rafters, and chandeliers to break through to the rooftop where an emergency rescue helicopter awaits.
 
@@ -36,7 +36,7 @@ Ascend through the building from the submerged basement to the rooftop, jumping 
 
 ### Lose Conditions
 * **Drowning (Asphyxiation):** Breath meter reaches `0` while submerged underwater.
-* **Predator Attack:** Player health drops to `0` from crocodile bite damage (35 damage per hit).
+* **Predator Attack:** Player health drops to `0` from shark bite damage (35 damage per hit).
 
 ---
 
@@ -54,7 +54,7 @@ Ascend through the building from the submerged basement to the rooftop, jumping 
 | - High-precision platforming & escape hatch traversal       |
                               ▲
 | ZONE 2: Dining Room & Bedrooms                              |
-| - Patrolling crocodile hazard entering submerged areas      |
+| - Patrolling shark hazard entering submerged areas      |
 | - Floating chairs, tilting tables, and collapsing shelves   |
 | - Water submersion forces breath management                 |
                               ▲
@@ -103,7 +103,7 @@ classDiagram
         +rise(delta: float)
     }
 
-    class Crocodile {
+    class Shark {
         -float patrolSpeed
         -int damage
         -tuple patrolBounds
@@ -140,8 +140,8 @@ classDiagram
     GameManager --> Player : manages
     GameManager --> WaterBody : manages
     GameManager --> Helicopter : manages
-    WaterBody *-- Crocodile : contains
-    Crocodile ..> Player : attacks
+    WaterBody *-- Shark : contains
+    Shark ..> Player : attacks
     Player ..> BuildingPlatform : lands on
     Player ..> Helicopter : triggers win
 ```
@@ -154,17 +154,17 @@ flowchart TD
     Init --> Loop[Start Game Loop]
 
     Loop --> UpdateWater[Update WaterBody<br/>Water rises through floors]
-    UpdateWater --> UpdateCroc[Update Crocodile<br/>Patrol flooded hallways]
-    UpdateCroc --> ReadInput[Read Player Input<br/>Move, Jump, Swim]
+    UpdateWater --> UpdateShark[Update Shark<br/>Patrol flooded hallways]
+    UpdateShark --> ReadInput[Read Player Input<br/>Move, Jump, Swim]
 
     ReadInput --> InWaterCheck{Is Player inside Water?}
 
     InWaterCheck -- Yes --> WaterPhysics[Water Physics<br/>Enable swim & deplete breath]
     InWaterCheck -- No --> RestoreBreath[Restore Breath<br/>Recovers to 100%]
 
-    WaterPhysics --> CrocHitCheck{Touched by Crocodile?}
-    CrocHitCheck -- Yes --> TakeDmg[Take Damage<br/>Player loses Health]
-    CrocHitCheck -- No --> HeliCheck
+    WaterPhysics --> SharkHitCheck{Touched by Shark?}
+    SharkHitCheck -- Yes --> TakeDmg[Take Damage<br/>Player loses Health]
+    SharkHitCheck -- No --> HeliCheck
 
     TakeDmg --> HeliCheck{Reached Roof<br/>Rescue Helicopter?}
     RestoreBreath --> HeliCheck
@@ -172,7 +172,7 @@ flowchart TD
     HeliCheck -- Yes --> Victory([VICTORY<br/>Escaped the Building!])
     HeliCheck -- No --> DeathCheck{Breath <= 0<br/>OR<br/>Health <= 0?}
 
-    DeathCheck -- Yes --> GameOver([GAME OVER<br/>Drowned or Crocodile Attack])
+    DeathCheck -- Yes --> GameOver([GAME OVER<br/>Drowned or Shark Attack])
     DeathCheck -- No --> Loop
 ```
 
@@ -184,7 +184,7 @@ flowchart TD
 Escape_The_Flood/
 ├── Assets/
 │   ├── Scripts/               # C# Gameplay & Architecture Scripts
-│   │   ├── Core/              # Player, WaterBody, Crocodile, BuildingPlatform, Helicopter
+│   │   ├── Core/              # Player, WaterBody, Shark, BuildingPlatform, Helicopter
 │   │   ├── Managers/          # GameManager, UIManager, AudioManager
 │   │   └── UI/                # HealthBar, BreathMeter, TimerDisplay
 │   ├── Prefabs/               # Prefabs for platforms, hazards, props
