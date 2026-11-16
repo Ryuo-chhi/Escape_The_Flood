@@ -187,21 +187,21 @@ The following table defines the recommended ownership for the four-member team.
 
 ### Work responsibility distribution
 
-**Member 1 – Game Core & Integration** — Integration lead, responsible for the overall game architecture.
+**Member 1 – Game Core & Integration (Mr. Kheng Sokthearith)** — Integration lead, responsible for the overall game architecture.
 - `GameManager`
 - Game states (Playing, Victory, Game Over)
 - Player movement and health/breath integration
 - Main game loop
 - Scene integration and testing
 
-**Member 2 – Environment & Platform** — Responsible for building the game world.
+**Member 2 – Environment & Platform (Mr. Yeat David)** — Responsible for building the game world.
 - Building interior and floors
 - Basement, living room, bedrooms, attic and rooftop
 - Furniture 3D assets
 - Platform collision
 - Floating and crumbling furniture
 
-**Member 3 – Water System** — Responsible for the flood mechanics.
+**Member 3 – Water System (Mr. Thang Saoly)** — Responsible for the flood mechanics.
 - `WaterBody`
 - Continuously rising water
 - Water surface and visual effects
@@ -209,7 +209,7 @@ The following table defines the recommended ownership for the four-member team.
 - Player breath depletion
 - Water collision boundaries
 
-**Member 4 – Enemy & Rescue System** — Responsible for hazards and the escape objective.
+**Member 4 – Enemy & Rescue System (Mr. Tiek Chhunhour)** — Responsible for hazards and the escape objective.
 - Shark 3D model
 - Shark patrol AI
 - Player detection and attack
@@ -218,12 +218,12 @@ The following table defines the recommended ownership for the four-member team.
 
 ### Folder ownership
 
-| Member | Main responsibility | Primary folders owned |
-|---|---|---|
-| **Member 1** | Game Core & Integration | `Scripts/GameCore/`, `Scripts/Player/`, `Scripts/UI/`, `Scenes/`, `Prefabs/Player/`, `Prefabs/UI/` |
-| **Member 2** | Environment & Platform | `Scripts/Environment/`, `Prefabs/Environment/`, `Models/Environment/`, `Models/Furniture/`, `Models/Props/`, `Materials/Environment/`, `Textures/Environment/` |
-| **Member 3** | Water System | `Scripts/Water/`, `Prefabs/Water/`, `Materials/Water/`, `Textures/Water/` |
-| **Member 4** | Enemy & Rescue System | `Scripts/Enemy/`, `Scripts/Rescue/`, `Prefabs/Enemy/`, `Prefabs/Rescue/`, `Models/Characters/`, `Materials/Enemy/`, `Textures/Characters/` |
+| Member | Assigned Student | Main responsibility | Primary folders owned |
+|---|---|---|---|
+| **Member 1** | Mr. Kheng Sokthearith | Game Core & Integration | `Scripts/GameCore/`, `Scripts/Player/`, `Scripts/UI/`, `Scenes/`, `Prefabs/Player/`, `Prefabs/UI/` |
+| **Member 2** | Mr. Yeat David | Environment & Platform | `Scripts/Environment/`, `Prefabs/Environment/`, `Models/Environment/`, `Models/Furniture/`, `Models/Props/`, `Materials/Environment/`, `Textures/Environment/` |
+| **Member 3** | Mr. Thang Saoly | Water System | `Scripts/Water/`, `Prefabs/Water/`, `Materials/Water/`, `Textures/Water/` |
+| **Member 4** | Mr. Tiek Chhunhour | Enemy & Rescue System | `Scripts/Enemy/`, `Scripts/Rescue/`, `Prefabs/Enemy/`, `Prefabs/Rescue/`, `Models/Characters/`, `Materials/Enemy/`, `Textures/Characters/` |
 
 ### Shared resources
 

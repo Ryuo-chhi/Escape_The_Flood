@@ -7,14 +7,14 @@
 
 ---
 
-## 👥 Development Team
+## 👥 Development Team & Responsibilities
 
-| Name | Role / Focus |
-| :--- | :--- |
-| **Mr. Thang Saoly** | Architecture, Player Physics & Gameplay Systems |
-| **Mr. Kheng Sokthearith** | Level Design, Platform Mechanics & Hazards |
-| **Mr. Tiek Chhunhour** | Hazard AI (Shark), Water Dynamics & VFX |
-| **Mr. Yeat David** | UI/HUD, Game State Management & Audio/Polish |
+| Role | Team Member | Primary Responsibility | Primary Modules & Folders |
+| :--- | :--- | :--- | :--- |
+| **Member 1** | **Mr. Kheng Sokthearith** | **Game Core & Integration (Lead)** | `GameManager`, Player movement & controller, Game loop, Scene integration (`Scripts/GameCore/`, `Scripts/Player/`, `Scripts/UI/`, `Scenes/`) |
+| **Member 2** | **Mr. Yeat David** | **Environment & Platform** | Building interior & floors, furniture 3D models/materials, platform collisions, crumbling & floating furniture (`Scripts/Environment/`, `Prefabs/Environment/`, `Models/`, `Materials/Environment/`) |
+| **Member 3** | **Mr. Thang Saoly** | **Water System** | `WaterBody`, continuously rising water, water surface & VFX, underwater detection volume, breath depletion (`Scripts/Water/`, `Prefabs/Water/`, `Materials/Water/`, `Textures/Water/`) |
+| **Member 4** | **Mr. Tiek Chhunhour** | **Enemy & Rescue System** | Shark 3D model, Shark patrol AI & attack, Helicopter rescue ladder & win trigger (`Scripts/Enemy/`, `Scripts/Rescue/`, `Prefabs/Enemy/`, `Prefabs/Rescue/`) |
 
 ---
 
