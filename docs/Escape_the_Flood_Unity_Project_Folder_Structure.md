@@ -85,7 +85,7 @@ Assets/
 | `GameCore_Test.unity` | Test game logic, player, and game states. |
 | `Environment_Test.unity` | Test building structures, furniture, and platforms. |
 | `WaterSystem_Test.unity` | Test rising water and underwater mechanics. |
-| `EnemyRescue_Test.unity` | Test crocodile AI and helicopter rescue mechanics. |
+| `EnemyRescue_Test.unity` | Test shark AI and helicopter rescue mechanics. |
 
 **Important:** Each member should work in their own test scene. Member 1 manages the final integration of `EscapeBuilding.unity`.
 
@@ -99,14 +99,14 @@ Assets/
 | `Player/` | Handles player movement, health, and animation. | `PlayerController.cs`, `PlayerHealth.cs`, `PlayerMovement.cs`, `PlayerAnimation.cs` |
 | `Environment/` | Handles interactive furniture and platforms. | `FloatingPlatform.cs`, `CrumblingPlatform.cs`, `PlatformSpawner.cs` |
 | `Water/` | Controls rising water and underwater mechanics. | `WaterController.cs`, `WaterRise.cs`, `UnderwaterDetector.cs`, `BreathController.cs` |
-| `Enemy/` | Controls crocodile behavior and attacks. | `CrocodileAI.cs`, `CrocodilePatrol.cs`, `PlayerDetection.cs`, `CrocodileAttack.cs` |
+| `Enemy/` | Controls shark behavior and attacks. | `SharkAI.cs`, `SharkPatrol.cs`, `PlayerDetection.cs`, `SharkAttack.cs` |
 | `Rescue/` | Handles helicopter and player rescue mechanics. | `HelicopterController.cs`, `RescueLadder.cs`, `RescueTrigger.cs` |
 | `UI/` | Controls the game interface and player information. | `MainMenuUI.cs`, `HealthUI.cs`, `BreathUI.cs`, `GameOverUI.cs` |
 
 **Examples:**
 - `WaterRise.cs` makes the water level increase.
 - `PlayerMovement.cs` allows the player to move.
-- `CrocodileAI.cs` controls crocodile behavior.
+- `SharkAI.cs` controls shark behavior.
 
 ### C. `Prefabs/` — Reusable GameObjects
 
@@ -117,7 +117,7 @@ Assets/
 | `Player/` | Reusable player objects. | Player and player camera setup. |
 | `Environment/` | Reusable building and environment objects. | Walls, floors, sofa, table, bookshelf, platforms. |
 | `Water/` | Reusable water objects. | Water surface and water volume. |
-| `Enemy/` | Reusable enemy objects. | Crocodile and crocodile spawn point. |
+| `Enemy/` | Reusable enemy objects. | Shark and shark spawn point. |
 | `Rescue/` | Reusable rescue objects. | Helicopter, ladder, rescue zone. |
 | `UI/` | Reusable interface components. | Health bar, breath bar, buttons, panels. |
 
@@ -132,7 +132,7 @@ For example, create one sofa prefab and reuse it in different rooms without rebu
 | `Environment/` | Materials for buildings and furniture. | Wood, concrete, metal, glass. |
 | `Water/` | Materials for water appearance. | Blue water and transparent water. |
 | `Player/` | Materials for the player. | Player clothing and skin materials. |
-| `Enemy/` | Materials for enemies. | Crocodile skin and eyes. |
+| `Enemy/` | Materials for enemies. | Shark skin and eyes. |
 
 Materials define how an object looks, including its color, smoothness, transparency, and surface properties.
 
@@ -142,7 +142,7 @@ For example, apply a wood material to a table to make it look wooden.
 
 | Folder | Responsibility | Examples |
 |---|---|---|
-| `Characters/` | 3D character models. | Player and crocodile. |
+| `Characters/` | 3D character models. | Player and shark. |
 | `Environment/` | Building and structural models. | Walls, doors, windows, stairs. |
 | `Furniture/` | Furniture models. | Sofa, table, bookshelf, chair, bed. |
 | `Props/` | Small decorative or interactive objects. | Boxes, bottles, wood pieces, lamps. |
@@ -155,7 +155,7 @@ Models contain the actual 3D shapes of objects, usually imported from tools such
 |---|---|---|
 | `Environment/` | Textures for buildings and furniture. | Wood texture, concrete texture, wall texture. |
 | `Water/` | Textures for water effects. | Water surface texture and water normal map. |
-| `Characters/` | Textures for characters. | Player clothing texture and crocodile skin texture. |
+| `Characters/` | Textures for characters. | Player clothing texture and shark skin texture. |
 
 Textures are image files used by materials to add surface details to 3D objects.
 
@@ -166,7 +166,7 @@ For example, a plain cube can look like a wooden box after a wood texture is app
 | Folder | Responsibility | Examples |
 |---|---|---|
 | `Music/` | Background music. | Main menu music and gameplay background music. |
-| `SFX/` | Sound effects triggered by actions. | Water splash, footsteps, object falling, crocodile attack. |
+| `SFX/` | Sound effects triggered by actions. | Water splash, footsteps, object falling, shark attack. |
 | `Ambient/` | Environmental background sounds. | Rain, wind, storm, flooding atmosphere. |
 
 This folder stores all audio files used in the game.
@@ -185,18 +185,51 @@ This folder stores visual resources for the game's user interface, rather than t
 
 The following table defines the recommended ownership for the four-member team.
 
-| Member | Main responsibility | Primary folders owned |
-|---|---|---|
-| **Member 1** | Game Core & Integration | `Scripts/GameCore/`, `Scripts/Player/`, `Scripts/UI/`, `Scenes/`, `Prefabs/Player/`, `Prefabs/UI/` |
-| **Member 2** | Environment & Platform | `Scripts/Environment/`, `Prefabs/Environment/`, `Models/Environment/`, `Models/Furniture/`, `Models/Props/`, `Materials/Environment/`, `Textures/Environment/` |
-| **Member 3** | Water System | `Scripts/Water/`, `Prefabs/Water/`, `Materials/Water/`, `Textures/Water/` |
-| **Member 4** | Enemy & Rescue System | `Scripts/Enemy/`, `Scripts/Rescue/`, `Prefabs/Enemy/`, `Prefabs/Rescue/`, `Models/Characters/`, `Materials/Enemy/`, `Textures/Characters/` |
+### Work responsibility distribution
+
+**Member 1 – Game Core & Integration (Mr. Kheng Sokthearith)** — Integration lead, responsible for the overall game architecture.
+- `GameManager`
+- Game states (Playing, Victory, Game Over)
+- Player movement and health/breath integration
+- Main game loop
+- Scene integration and testing
+
+**Member 2 – Environment & Platform (Mr. Yeat David)** — Responsible for building the game world.
+- Building interior and floors
+- Basement, living room, bedrooms, attic and rooftop
+- Furniture 3D assets
+- Platform collision
+- Floating and crumbling furniture
+
+**Member 3 – Water System (Mr. Thang Saoly)** — Responsible for the flood mechanics.
+- `WaterBody`
+- Continuously rising water
+- Water surface and visual effects
+- Underwater detection
+- Player breath depletion
+- Water collision boundaries
+
+**Member 4 – Enemy & Rescue System (Mr. Tiek Chhunhour)** — Responsible for hazards and the escape objective.
+- Shark 3D model
+- Shark patrol AI
+- Player detection and attack
+- Helicopter and rescue ladder
+- Win-condition trigger
+
+### Folder ownership
+
+| Member | Assigned Student | Main responsibility | Primary folders owned |
+|---|---|---|---|
+| **Member 1** | Mr. Kheng Sokthearith | Game Core & Integration | `Scripts/GameCore/`, `Scripts/Player/`, `Scripts/UI/`, `Scenes/`, `Prefabs/Player/`, `Prefabs/UI/` |
+| **Member 2** | Mr. Yeat David | Environment & Platform | `Scripts/Environment/`, `Prefabs/Environment/`, `Models/Environment/`, `Models/Furniture/`, `Models/Props/`, `Materials/Environment/`, `Textures/Environment/` |
+| **Member 3** | Mr. Thang Saoly | Water System | `Scripts/Water/`, `Prefabs/Water/`, `Materials/Water/`, `Textures/Water/` |
+| **Member 4** | Mr. Tiek Chhunhour | Enemy & Rescue System | `Scripts/Enemy/`, `Scripts/Rescue/`, `Prefabs/Enemy/`, `Prefabs/Rescue/`, `Models/Characters/`, `Materials/Enemy/`, `Textures/Characters/` |
 
 ### Shared resources
 
 - `Audio/` — Members can contribute sounds for their systems. One person should coordinate naming and organization.
 - `UI/` — Interface images and fonts should be coordinated with Member 1.
-- `Models/Characters/` — Member 4 can manage crocodile assets, while Member 1 coordinates the player model integration.
+- `Models/Characters/` — Member 4 can manage shark assets, while Member 1 coordinates the player model integration.
 
 **Ownership means coordination, not technical access restriction.** Team members should discuss changes to another member's files before editing them.
 
