@@ -143,6 +143,7 @@ namespace EscapeTheFlood.GameCore
 
         public void LoadMainMenu()
         {
+            ShowCursor(true);
             Time.timeScale = 1f;
             SceneManager.LoadScene(mainMenuSceneName);
         }
