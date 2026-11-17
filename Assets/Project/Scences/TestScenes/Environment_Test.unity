@@ -1197,6 +1197,18 @@ PrefabInstance:
       propertyPath: m_Name
       value: Shark_Root
       objectReference: {fileID: 0}
+    - target: {fileID: 5187626617495180686, guid: 287a4e9a22ff0d940bc656d26d39544f, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -2.53
+      objectReference: {fileID: 0}
+    - target: {fileID: 5187626617495180686, guid: 287a4e9a22ff0d940bc656d26d39544f, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1.92
+      objectReference: {fileID: 0}
+    - target: {fileID: 5187626617495180686, guid: 287a4e9a22ff0d940bc656d26d39544f, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -9.1
+      objectReference: {fileID: 0}
     - target: {fileID: 5311694806505160019, guid: 287a4e9a22ff0d940bc656d26d39544f, type: 3}
       propertyPath: m_LocalPosition.x
       value: -3.210402
