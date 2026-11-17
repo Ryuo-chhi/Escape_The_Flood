@@ -7,6 +7,16 @@
 
 ---
 
+## 🔗 Project Links & Deliverables
+
+| Resource | Link / Location | Description |
+| :--- | :--- | :--- |
+| **GitHub Repository** | [github.com/Ryuo-chhi/Escape_The_Flood](https://github.com/Ryuo-chhi/Escape_The_Flood) | Complete source code, Unity project, scripts & assets |
+| **Gameplay Video Demo** | [YouTube Video Demo](https://youtu.be/4WPPljLfnKM) | Full gameplay walkthrough and showcase video |
+| **Playable Game Build** | [`Build.zip`](./Build.zip)<br>`D:\CADT\YEAR3\Game Development\Escape_The_Flood\Build.zip` | Standalone playable game archive (Windows & macOS builds) |
+
+---
+
 ## 👥 Development Team & Responsibilities
 
 | Role | Team Member | Primary Responsibility | Primary Modules & Folders |
@@ -214,6 +224,15 @@ Escape_The_Flood/
 ---
 
 ## 🚀 Getting Started
+
+### 🎮 Option 1: Play Standalone Build (Quickest)
+
+1. Extract `Build.zip` located in the root repository folder (`D:\CADT\YEAR3\Game Development\Escape_The_Flood\Build.zip`).
+2. Launch the game executable:
+   * **Windows:** Run `Build/Windows/Escape_The_Flood.exe`
+   * **macOS:** Run `Build/Mac/Mac.app`
+
+### 🛠️ Option 2: Run in Unity Editor (Development)
 
 1. **Prerequisites:**
    * Unity **6000.3.8f1** or compatible Unity 6 release.
