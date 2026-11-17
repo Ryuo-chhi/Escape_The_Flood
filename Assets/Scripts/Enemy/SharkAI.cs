@@ -1117,7 +1117,8 @@ public class SharkAI : MonoBehaviour
 
     private Vector3 GetPlayerCenter()
     {
-        return playerTransform.position + Vector3.up * playerCenterHeight;
+        // Scales with the player (the player prefab is scaled 2x)
+        return playerTransform.position + Vector3.up * (playerCenterHeight * Mathf.Max(0.1f, playerTransform.lossyScale.y));
     }
 
     private Vector3 GetMouthPosition()

@@ -121,13 +121,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3ef29744193a911d8b3a23a3f1452813, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EscapeTheFlood.Player.PlayerMovement
-  moveSpeed: 5
+  moveSpeed: 6.5
   rotationSpeed: 720
-  jumpHeight: 1.5
+  jumpHeight: 2.8
   gravity: -18
-  swimSpeed: 4.2
-  swimAscendSpeed: 3.5
-  swimDescendSpeed: 3
+  swimSpeed: 5
+  swimAscendSpeed: 4.5
+  swimDescendSpeed: 3.5
   swimTriggerDepth: 0.3
   headHeightOffset: 1.4
   swimForwardTilt: 65
