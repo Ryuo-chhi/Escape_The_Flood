@@ -33,7 +33,11 @@ ModelImporter:
     isReadable: 0
   meshes:
     lODScreenPercentages: []
+<<<<<<< HEAD:Assets/Alstra Infinite/Fish - PolyPack/Models/SharkV1.fbx.meta
     globalScale: 1
+=======
+    globalScale: 1.5
+>>>>>>> 3ee23fd2bfad2c675f29ea3d08009d4046c02e92:Assets/Project/Models/Enemy/SharkV1.fbx.meta
     meshCompression: 0
     addColliders: 0
     useSRGBMaterialColor: 1
@@ -91,7 +95,11 @@ ModelImporter:
     armStretch: 0.05
     legStretch: 0.05
     feetSpacing: 0
+<<<<<<< HEAD:Assets/Alstra Infinite/Fish - PolyPack/Models/SharkV1.fbx.meta
     globalScale: 1
+=======
+    globalScale: 0.015
+>>>>>>> 3ee23fd2bfad2c675f29ea3d08009d4046c02e92:Assets/Project/Models/Enemy/SharkV1.fbx.meta
     rootMotionBoneName: 
     hasTranslationDoF: 0
     hasExtraRoot: 0
