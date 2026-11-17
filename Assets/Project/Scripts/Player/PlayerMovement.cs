@@ -140,6 +140,9 @@ namespace EscapeTheFlood.Player
         {
             if (isDead) return;
 
+            // Ignore input while paused / on end screens (otherwise a jump pressed during pause fires on resume)
+            if (Time.timeScale <= 0f) return;
+
             // 1. Water Line Check (Checks against water level)
             CheckWaterLevel();
 

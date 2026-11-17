@@ -6862,6 +6862,10 @@ PrefabInstance:
       propertyPath: m_Enabled
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 4776934725985597242, guid: 1af6a3586b0e9f39cbc8c9053bd7e81b, type: 3}
+      propertyPath: m_Center.y
+      value: 0.75
+      objectReference: {fileID: 0}
     - target: {fileID: 6763919366174729019, guid: 1af6a3586b0e9f39cbc8c9053bd7e81b, type: 3}
       propertyPath: m_LocalPosition.x
       value: -4.8274455
@@ -7788,13 +7792,25 @@ MonoBehaviour:
   m_GameObject: {fileID: 2003104087}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bf3690cb0ca5010a994069f089b879c2, type: 3}
+  m_Script: {fileID: 11500000, guid: 03128babfba6a89c692cd9681613eddc, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::EscapeTheFlood.Player.SimpleFollowCamera
+  m_EditorClassIdentifier: Assembly-CSharp::EscapeTheFlood.Player.ThirdPersonCamera
   target: {fileID: 1799728804}
-  offset: {x: 0, y: 2.5, z: -4}
-  smoothTime: 0.08
-  lookAtHeight: 1.2
+  pivotHeight: 2.6
+  distance: 7
+  minDistance: 1
+  distanceRecoverSpeed: 6
+  mouseSensitivity: 0.12
+  stickSensitivity: 140
+  invertY: 0
+  minPitch: -25
+  maxPitch: 70
+  startPitch: 20
+  collisionRadius: 0.3
+  collisionMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  lockCursorWhilePlaying: 1
 --- !u!1001 &2034264003
 PrefabInstance:
   m_ObjectHideFlags: 0

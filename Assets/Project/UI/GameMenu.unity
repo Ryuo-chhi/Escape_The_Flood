@@ -934,7 +934,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: aedbcca30cadfea089831cbc5a045336, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EscapeTheFlood.UI.MainMenuController
-  gameplaySceneName: EscapeBuilding
+  gameplaySceneName: Main
   mainButtonsPanel: {fileID: 1541082065}
   howToPlayPanel: {fileID: 448198193}
   creditsPanel: {fileID: 1907002713}
@@ -2738,7 +2738,7 @@ MonoBehaviour:
     m_FontStyle: 1
     m_BestFit: 0
     m_MinSize: 10
-    m_MaxSize: 40
+    m_MaxSize: 52
     m_Alignment: 4
     m_AlignByGeometry: 0
     m_RichText: 1
