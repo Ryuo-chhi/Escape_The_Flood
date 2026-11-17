@@ -13,7 +13,7 @@
 | :--- | :--- | :--- |
 | **GitHub Repository** | [github.com/Ryuo-chhi/Escape_The_Flood](https://github.com/Ryuo-chhi/Escape_The_Flood) | Complete source code, Unity project, scripts & assets |
 | **Gameplay Video Demo** | [YouTube Video Demo](https://youtu.be/4WPPljLfnKM) | Full gameplay walkthrough and showcase video |
-| **Playable Game Build** | [`Build.zip`](./Build.zip)<br>`D:\CADT\YEAR3\Game Development\Escape_The_Flood\Build.zip` | Standalone playable game archive (Windows & macOS builds) |
+  | **Playable Game Build** | [`Build.zip`](./Build.zip)| Standalone playable game archive (Windows & macOS builds) |
 
 ---
 
