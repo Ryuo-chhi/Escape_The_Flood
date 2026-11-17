@@ -10,6 +10,9 @@ using EscapeTheFlood.Water;
 ///    steering away via reflected normal on XZ, biasing depth away from floor/ceiling, and drawing debug rays.
 /// Plus XZ steering, independent depth lerping, player detection, chase mode, bite attack, banking,
 /// and procedural tail wave coupling.
+/// The shark stays hidden until the flood is deep enough, keeps between the floor below and the
+/// ceiling/slab above (so it cannot swim through building floors), only bites with a clear line of
+/// sight, and makes passes at the player (bite, swim past, turn back) instead of orbiting.
 /// </summary>
 public class SharkAI : MonoBehaviour
 {
@@ -53,7 +56,7 @@ public class SharkAI : MonoBehaviour
     [SerializeField] private bool drawDebugRays = true;
 
     [FormerlySerializedAs("turnSpeed")]
-    [Tooltip("Legacy fallback turn speed in degrees per second (now dynamically computed from body length and speed).")]
+    [Tooltip("Minimum patrol turn rate in degrees per second (patrol uses half of this; lets the shark pivot when slow).")]
     [SerializeField] private float turnSpeed = 60.0f;
 
     [FormerlySerializedAs("waypointTolerance")]
@@ -166,6 +169,26 @@ public class SharkAI : MonoBehaviour
     [Tooltip("Cooldown in seconds between bite lunges.")]
     [SerializeField] private float attackCooldown = 2.0f;
 
+    [Tooltip("During the lunge, the bite lands if the mouth gets this close to the player's body center.")]
+    [SerializeField] private float biteRadius = 1.4f;
+
+    [Tooltip("Shark must be facing the player within this angle (degrees) to start a lunge.")]
+    [Range(10f, 90f)]
+    [SerializeField] private float attackFacingAngle = 40.0f;
+
+    [Tooltip("Height of the player's body center above their feet (used for distance and line-of-sight checks).")]
+    [SerializeField] private float playerCenterHeight = 0.9f;
+
+    [Tooltip("Seconds the shark keeps chasing after losing line of sight before giving up.")]
+    [SerializeField] private float lostSightGiveUpTime = 2.0f;
+
+    [Header("Activation (Rising Water)")]
+    [Tooltip("Shark stays hidden and inactive until the water is at least this deep.")]
+    [SerializeField] private float minActiveWaterDepth = 2.0f;
+
+    [Tooltip("Hide the shark renderers while it is waiting for deep enough water.")]
+    [SerializeField] private bool hideWhileDormant = true;
+
     [Tooltip("Duration in seconds of the forward lunge burst.")]
     [SerializeField] private float lungeDuration = 0.35f;
 
@@ -246,6 +269,14 @@ public class SharkAI : MonoBehaviour
     // Attack & Cooldown timers
     private float attackCooldownTimer = 0.0f;
     private float lungeTimer = 0.0f;
+    private bool hasBittenThisLunge = false;
+    private float lostSightTimer = 0.0f;
+    private float repositionTimer = 0.0f;
+
+    // Activation & body size
+    private bool isActive = false;
+    private Renderer[] cachedRenderers;
+    private float bodyHalfHeight = 0.5f;
 
     // Accumulated wave phase (for Shader Graph fallback)
     private float accumulatedPhase = 0.0f;
@@ -287,6 +318,29 @@ public class SharkAI : MonoBehaviour
         {
             Debug.LogWarning("[SharkAI] Shark was parented under WaterBody! Unparenting to prevent inheriting water scale and position.", this);
             moveTransform.SetParent(null);
+        }
+
+        // 2b. Re-center: the AI moves/measures from moveTransform, so the visible model must sit on it.
+        //     If the model child was placed with an offset in the scene/prefab, move the root onto the
+        //     model and zero the child's local position (keeps the shark exactly where it appears).
+        if (sharkModel != null && sharkModel != moveTransform && sharkModel.localPosition.sqrMagnitude > 0.0001f)
+        {
+            Vector3 modelWorldPos = sharkModel.position;
+            moveTransform.position = modelWorldPos;
+            sharkModel.localPosition = Vector3.zero;
+            Debug.Log($"[SharkAI] Model was offset from its AI root; re-centered root on the model at {modelWorldPos}.", this);
+        }
+
+        // 2c. Fit the model's trigger collider to the actual mesh size
+        if (sharkModel != null)
+        {
+            BoxCollider modelCollider = sharkModel.GetComponent<BoxCollider>();
+            MeshFilter modelMesh = sharkModel.GetComponent<MeshFilter>();
+            if (modelCollider != null && modelMesh != null && modelMesh.sharedMesh != null)
+            {
+                modelCollider.center = modelMesh.sharedMesh.bounds.center;
+                modelCollider.size = modelMesh.sharedMesh.bounds.size;
+            }
         }
 
         headingRotation = moveTransform.rotation;
@@ -380,6 +434,11 @@ public class SharkAI : MonoBehaviour
         // Find player if not assigned
         FindPlayer();
 
+        // Start dormant; Update activates once the water is deep enough
+        cachedRenderers = moveTransform.GetComponentsInChildren<Renderer>(true);
+        isActive = false;
+        SetSharkVisible(!hideWhileDormant);
+
         // Run diagnostics
         RunDebugChecklist();
 
@@ -403,6 +462,13 @@ public class SharkAI : MonoBehaviour
         if (playerTransform == null)
         {
             FindPlayer();
+        }
+
+        // Wait (hidden) until the flood is deep enough to swim in
+        if (!isActive)
+        {
+            if (GetWaterDepth() < minActiveWaterDepth) return;
+            ActivateShark();
         }
 
         // State Machine
@@ -463,6 +529,7 @@ public class SharkAI : MonoBehaviour
         {
             Vector3 size = sharkRenderer.bounds.size;
             length = Mathf.Max(size.x, size.z);
+            bodyHalfHeight = Mathf.Max(0.2f, size.y * 0.5f);
         }
 
         if (length <= 0.1f)
@@ -692,12 +759,11 @@ public class SharkAI : MonoBehaviour
 
     private void HandlePatrolState()
     {
-        // 1. Check if player entered detection radius while submerged in water
+        // 1. Detect a submerged player within range (3D distance) that the shark can actually see
         if (playerTransform != null && IsPlayerInWater())
         {
-            Vector3 toPlayerXZ = playerTransform.position - moveTransform.position;
-            toPlayerXZ.y = 0.0f;
-            if (toPlayerXZ.magnitude <= detectionRadius)
+            Vector3 playerCenter = GetPlayerCenter();
+            if (Vector3.Distance(moveTransform.position, playerCenter) <= detectionRadius && HasLineOfSightToPlayer())
             {
                 SwitchState(SharkState.Chase);
                 return;
@@ -734,7 +800,7 @@ public class SharkAI : MonoBehaviour
         UpdateSmoothedDirection(rawDesired);
 
         // 7. Fish-like turning & movement along facing direction
-        ExecuteFishMovement(cruiseSpeed, minSpeed);
+        ExecuteFishMovement(cruiseSpeed, minSpeed, turnSpeed * 0.5f);
 
         // 8. Handle depth separately with vertical obstacle avoidance
         float targetY = GetCurrentPatrolTargetY();
@@ -752,39 +818,65 @@ public class SharkAI : MonoBehaviour
             return;
         }
 
-        Vector3 toPlayerXZ = playerTransform.position - moveTransform.position;
+        Vector3 playerCenter = GetPlayerCenter();
+        Vector3 toPlayerXZ = playerCenter - moveTransform.position;
         toPlayerXZ.y = 0.0f;
-        float distToPlayerXZ = toPlayerXZ.magnitude;
+        float distToPlayer = Vector3.Distance(moveTransform.position, playerCenter);
 
-        if (distToPlayerXZ > loseSightRadius)
+        if (distToPlayer > loseSightRadius)
         {
             Debug.Log("[SharkAI] Lost sight of player. Returning to patrol.", this);
             SwitchState(SharkState.Patrol);
             return;
         }
 
-        // Trigger Bite Attack when close enough in XZ and off cooldown
-        if (distToPlayerXZ <= attackRange && attackCooldownTimer <= 0f)
+        // Give up if a wall/floor blocks the view for too long
+        bool canSee = HasLineOfSightToPlayer();
+        lostSightTimer = canSee ? 0f : lostSightTimer + Time.deltaTime;
+        if (lostSightTimer > lostSightGiveUpTime)
+        {
+            Debug.Log("[SharkAI] Player hidden behind obstacles. Returning to patrol.", this);
+            SwitchState(SharkState.Patrol);
+            return;
+        }
+
+        // Lunge when the mouth is close, the shark faces the player, nothing blocks, and cooldown is over
+        if (canSee && attackCooldownTimer <= 0f && GetMouthDistanceToPlayer() <= attackRange && IsFacingPlayer())
         {
             SwitchState(SharkState.Attack);
             return;
         }
 
-        // Compute desired direction towards player with obstacle avoidance
-        Vector3 rawDesired = ComputeDesiredDirection(toPlayerXZ, out _);
-        UpdateSmoothedDirection(rawDesired);
-
-        // Chase at higher speeds
-        ExecuteFishMovement(chaseSpeed, Mathf.Max(minSpeed, 2.0f));
-
-        // Handle depth separately: smoothly Lerp shark Y toward player Y (bounded inside water)
-        float targetY = Mathf.Min(playerTransform.position.y, GetMaxAllowedY());
-        if (waterBody != null)
+        // Too close and side-on (player is alongside the body): swim on past, then turn and charge again.
+        // This makes "passes" like a real shark instead of orbiting the player forever.
+        if (repositionTimer <= 0f && !IsFacingPlayer() && toPlayerXZ.magnitude < bodyLength * 0.75f)
         {
-            Bounds b = waterBody.GetWaterBounds();
-            targetY = Mathf.Max(targetY, b.min.y + floorMargin);
+            repositionTimer = 1.0f;
         }
-        targetY = ApplyVerticalObstacleAvoidance(targetY);
+
+        Vector3 rawDesired;
+        if (repositionTimer > 0f)
+        {
+            repositionTimer -= Time.deltaTime;
+            Vector3 forwardXZ = moveTransform.forward;
+            forwardXZ.y = 0f;
+            rawDesired = ComputeDesiredDirection(forwardXZ, out _);
+            UpdateSmoothedDirection(rawDesired);
+            ExecuteFishMovement(chaseSpeed, chaseSpeed * 0.6f, chaseTurnSpeed);
+        }
+        else
+        {
+            // Compute desired direction towards player with obstacle avoidance
+            rawDesired = ComputeDesiredDirection(toPlayerXZ, out _);
+            UpdateSmoothedDirection(rawDesired);
+
+            // Low minimum speed lets it pivot to face the player when turning hard
+            ExecuteFishMovement(chaseSpeed, minSpeed, chaseTurnSpeed);
+        }
+
+        // Depth: follow the player's body center, kept inside the local water band (floor/ceiling/surface)
+        GetSafeVerticalBand(out float bandMinY, out float bandMaxY);
+        float targetY = Mathf.Clamp(playerCenter.y, bandMinY, Mathf.Max(bandMinY, bandMaxY));
         UpdateDepth(targetY);
     }
 
@@ -793,8 +885,32 @@ public class SharkAI : MonoBehaviour
         lungeTimer -= Time.deltaTime;
         float dt = Mathf.Max(Time.deltaTime, 0.0001f);
 
+        // Small homing during the lunge so a slightly moving player can still be caught
+        if (playerTransform != null)
+        {
+            Vector3 toPlayerXZ = GetPlayerCenter() - moveTransform.position;
+            toPlayerXZ.y = 0f;
+            if (toPlayerXZ.sqrMagnitude > 0.01f)
+            {
+                headingRotation = Quaternion.RotateTowards(headingRotation, Quaternion.LookRotation(toPlayerXZ.normalized, Vector3.up), 120f * dt);
+                moveTransform.rotation = headingRotation;
+            }
+
+            GetSafeVerticalBand(out float bandMinY, out float bandMaxY);
+            UpdateDepth(Mathf.Clamp(GetPlayerCenter().y, bandMinY, Mathf.Max(bandMinY, bandMaxY)));
+        }
+
         // Forward burst lunge strictly along transform.forward
         moveTransform.position += moveTransform.forward * (lungeSpeed * dt);
+
+        // Bite lands once per lunge, only on real contact with nothing in between
+        if (!hasBittenThisLunge && playerTransform != null && IsPlayerInWater()
+            && GetMouthDistanceToPlayer() <= biteRadius && HasLineOfSightToPlayer())
+        {
+            hasBittenThisLunge = true;
+            Debug.Log($"<color=red><b>[SharkAI] Bite hit! -{attackDamage} HP</b></color>", this);
+            playerTransform.SendMessage("TakeDamage", (float)attackDamage, SendMessageOptions.DontRequireReceiver);
+        }
 
         if (rootRb != null && !rootRb.isKinematic)
         {
@@ -815,10 +931,11 @@ public class SharkAI : MonoBehaviour
             Debug.DrawRay(moveTransform.position + Vector3.up * 0.05f, measuredVelocity, Color.yellow);
         }
 
-        // When lunge completes, return to chase while on cooldown
+        // When lunge completes, swim on past the player briefly, then come back around for another pass
         if (lungeTimer <= 0f)
         {
             SwitchState(SharkState.Chase);
+            repositionTimer = 0.8f;
         }
     }
 
@@ -835,6 +952,7 @@ public class SharkAI : MonoBehaviour
                 break;
 
             case SharkState.Chase:
+                lostSightTimer = 0f;
                 Debug.Log("<color=yellow><b>[SharkAI] Player spotted in water! Chasing player.</b></color>", this);
                 break;
 
@@ -842,12 +960,7 @@ public class SharkAI : MonoBehaviour
                 Debug.Log("<color=red><b>[SharkAI] Bite Attack Lunge!</b></color>", this);
                 lungeTimer = lungeDuration;
                 attackCooldownTimer = attackCooldown;
-
-                // Deal damage to player
-                if (playerTransform != null)
-                {
-                    playerTransform.SendMessage("TakeDamage", attackDamage, SendMessageOptions.DontRequireReceiver);
-                }
+                hasBittenThisLunge = false; // damage is applied in HandleAttackState on contact
                 break;
         }
     }
@@ -927,10 +1040,8 @@ public class SharkAI : MonoBehaviour
     {
         if (waterBody != null)
         {
-            Bounds b = waterBody.GetWaterBounds();
-            float floorTop = b.min.y;
-            float minY = floorTop + floorMargin;
-            float maxY = waterBody.CurrentWaterY - surfaceMargin;
+            // Uses the local band so targets stay between this room's floor and ceiling
+            GetSafeVerticalBand(out float minY, out float maxY);
 
             if (minY < maxY)
             {
@@ -940,6 +1051,102 @@ public class SharkAI : MonoBehaviour
         }
 
         return GetMaxAllowedY();
+    }
+
+    /// <summary>
+    /// Vertical range the shark's center may occupy at its current XZ position:
+    /// above the nearest floor below (furniture/floor slab on the obstacle layer, or the water floor)
+    /// and below both the water surface and the nearest ceiling/slab above.
+    /// This keeps the shark from swimming through building floors as the water rises.
+    /// </summary>
+    private void GetSafeVerticalBand(out float minY, out float maxY)
+    {
+        Vector3 pos = moveTransform.position;
+        float surface = GetWaterLevel();
+
+        minY = (waterBody != null ? waterBody.FloorY : surface - 50f) + floorMargin;
+        maxY = surface - surfaceMargin;
+
+        const float probeDistance = 60f;
+
+        if (Physics.Raycast(pos, Vector3.down, out RaycastHit floorHit, probeDistance, obstacleLayerMask, QueryTriggerInteraction.Ignore))
+        {
+            minY = Mathf.Max(minY, floorHit.point.y + Mathf.Max(floorMargin, bodyHalfHeight));
+        }
+
+        if (Physics.Raycast(pos, Vector3.up, out RaycastHit ceilingHit, probeDistance, obstacleLayerMask, QueryTriggerInteraction.Ignore))
+        {
+            maxY = Mathf.Min(maxY, ceilingHit.point.y - (bodyHalfHeight + 0.2f));
+        }
+    }
+
+    /// <summary>
+    /// Current water depth (surface height above the water floor).
+    /// </summary>
+    private float GetWaterDepth()
+    {
+        if (waterBody == null) waterBody = WaterBody.Instance;
+        return waterBody != null ? waterBody.CurrentHeight : 0f;
+    }
+
+    private void ActivateShark()
+    {
+        isActive = true;
+        SetSharkVisible(true);
+
+        // Start at a safe depth right where it was placed, then begin patrolling
+        GetSafeVerticalBand(out float minY, out float maxY);
+        Vector3 pos = moveTransform.position;
+        pos.y = (minY <= maxY) ? Mathf.Lerp(minY, maxY, 0.4f) : (minY + maxY) * 0.5f;
+        moveTransform.position = pos;
+        previousPosition = pos;
+
+        SwitchState(SharkState.Patrol);
+        PickNewPatrolTarget();
+        Debug.Log($"[SharkAI] Water is {GetWaterDepth():F1}m deep. Shark is now active.", this);
+    }
+
+    private void SetSharkVisible(bool visible)
+    {
+        if (cachedRenderers == null) return;
+        foreach (Renderer r in cachedRenderers)
+        {
+            if (r != null) r.enabled = visible;
+        }
+    }
+
+    private Vector3 GetPlayerCenter()
+    {
+        return playerTransform.position + Vector3.up * playerCenterHeight;
+    }
+
+    private Vector3 GetMouthPosition()
+    {
+        return moveTransform.position + moveTransform.forward * (bodyLength * 0.45f);
+    }
+
+    private float GetMouthDistanceToPlayer()
+    {
+        return Vector3.Distance(GetMouthPosition(), GetPlayerCenter());
+    }
+
+    private bool IsFacingPlayer()
+    {
+        Vector3 toPlayer = GetPlayerCenter() - moveTransform.position;
+        toPlayer.y = 0f;
+        Vector3 forward = moveTransform.forward;
+        forward.y = 0f;
+        if (toPlayer.sqrMagnitude < 0.01f) return true;
+        return Vector3.Angle(forward, toPlayer) <= attackFacingAngle;
+    }
+
+    /// <summary>
+    /// True when no wall/floor/furniture on the obstacle layer is between the shark and the player.
+    /// </summary>
+    private bool HasLineOfSightToPlayer()
+    {
+        if (playerTransform == null) return false;
+        return !Physics.Linecast(moveTransform.position, GetPlayerCenter(), obstacleLayerMask, QueryTriggerInteraction.Ignore);
     }
 
     /// <summary>
@@ -962,11 +1169,8 @@ public class SharkAI : MonoBehaviour
             float minZ = b.min.z + marginXZ;
             float maxZ = b.max.z - marginXZ;
 
-            float floorTop = b.min.y;
-            float currentSurface = waterBody.CurrentWaterY;
-
-            float minY = floorTop + floorMargin;
-            float maxY = currentSurface - surfaceMargin;
+            // Y: between local floor and min(local ceiling, water surface)
+            GetSafeVerticalBand(out float minY, out float maxY);
 
             if (minX <= maxX)
                 pos.x = Mathf.Clamp(pos.x, minX, maxX);
@@ -978,10 +1182,11 @@ public class SharkAI : MonoBehaviour
             else
                 pos.z = (b.min.z + b.max.z) * 0.5f;
 
-            if (minY <= maxY)
-                pos.y = Mathf.Clamp(pos.y, minY, maxY);
-            else
-                pos.y = (minY + maxY) * 0.5f;
+            // Rise smoothly over furniture/floors instead of snapping, but never above the ceiling/surface
+            if (pos.y < minY)
+                pos.y = Mathf.MoveTowards(pos.y, minY, 3.0f * Time.deltaTime);
+            if (pos.y > maxY)
+                pos.y = maxY;
         }
         else
         {
@@ -1063,7 +1268,7 @@ public class SharkAI : MonoBehaviour
     /// D. Steers toward smoothedDirection (no snapping).
     /// E. Banks visual mesh child into the turn (up to bankAmount degrees).
     /// </summary>
-    private void ExecuteFishMovement(float targetCruiseSpeed, float targetMinSpeed)
+    private void ExecuteFishMovement(float targetCruiseSpeed, float targetMinSpeed, float minTurnRateDeg = 0f)
     {
         float dt = Mathf.Max(Time.deltaTime, 0.0001f);
 
@@ -1088,6 +1293,8 @@ public class SharkAI : MonoBehaviour
         // 3. Dynamic max turn rate: maxTurnRate (deg/s) = (currentSpeed / minTurnRadius) * Rad2Deg
         float effectiveRadius = Mathf.Max(minTurnRadius, 0.3f);
         float maxTurnRateDeg = (currentMoveSpeed / effectiveRadius) * Mathf.Rad2Deg;
+        // Sharks can pivot tightly when slow: never turn slower than the minimum rate (avoids endless circling)
+        maxTurnRateDeg = Mathf.Max(maxTurnRateDeg, minTurnRateDeg);
 
         // 4. Rotate first towards smoothed direction using max turn rate
         Quaternion targetRotation = Quaternion.LookRotation(smoothedDirection, Vector3.up);
@@ -1222,6 +1429,15 @@ public class SharkAI : MonoBehaviour
 
     private void FindPlayer()
     {
+        // Prefer the actual player controller (tags can be set on other objects by mistake)
+        EscapeTheFlood.Player.PlayerMovement playerMovement = EscapeTheFlood.Player.PlayerMovement.Instance;
+        if (playerMovement == null) playerMovement = FindFirstObjectByType<EscapeTheFlood.Player.PlayerMovement>();
+        if (playerMovement != null)
+        {
+            playerTransform = playerMovement.transform;
+            return;
+        }
+
         if (!string.IsNullOrEmpty(playerTag))
         {
             GameObject playerObj = GameObject.FindWithTag(playerTag);
@@ -1304,7 +1520,7 @@ public class SharkAI : MonoBehaviour
 
         // Attack Range (Red)
         Gizmos.color = Color.red;
-        Gizmos.DrawWireSphere(t.position, attackRange);
+        Gizmos.DrawWireSphere(t.position + t.forward * (bodyLength * 0.45f), attackRange);
 
         // Safe Volume Boundary (Green wireframe)
         if (waterBody != null)
