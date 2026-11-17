@@ -12,6 +12,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Player Variant
       objectReference: {fileID: 0}
+    - target: {fileID: 4643246499513283666, guid: 64dfb848467dba7429b6c58b74f82709, type: 3}
+      propertyPath: m_TagString
+      value: Player
+      objectReference: {fileID: 0}
     - target: {fileID: 8515033453920929345, guid: 64dfb848467dba7429b6c58b74f82709, type: 3}
       propertyPath: m_LocalPosition.x
       value: -2.5
@@ -109,4 +113,17 @@ MonoBehaviour:
   rotationSpeed: 720
   jumpHeight: 1.5
   gravity: -18
+  swimSpeed: 4.2
+  swimAscendSpeed: 3.5
+  swimDescendSpeed: 3
+  swimTriggerDepth: 0.3
+  headHeightOffset: 1.4
+  swimForwardTilt: 65
+  maxHealth: 100
+  currentHealth: 100
+  maxBreath: 100
+  currentBreath: 100
+  breathDepletionRate: 10
+  breathRecoveryRate: 30
+  drowningDamagePerSec: 15
   cameraTransform: {fileID: 0}
