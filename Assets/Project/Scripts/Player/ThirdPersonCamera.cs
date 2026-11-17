@@ -82,8 +82,10 @@ namespace EscapeTheFlood.Player
         {
             if (target == null) return;
 
-            // Only look around / lock the cursor while the game is running (not paused or on end screens)
-            if (Time.timeScale > 0f)
+            // Only look around / lock the cursor while the game is actually being played.
+            // Checking the GameManager state (not just timeScale) matters: menu buttons reset timeScale to 1
+            // one frame before the next scene loads, and locking then would leave the main menu unclickable.
+            if (IsPlaying())
             {
                 ReadLookInput();
                 if (lockCursorWhilePlaying && Cursor.lockState != CursorLockMode.Locked)
@@ -108,6 +110,13 @@ namespace EscapeTheFlood.Player
             }
 
             transform.SetPositionAndRotation(pivot + back * currentDistance, rotation);
+        }
+
+        private static bool IsPlaying()
+        {
+            if (Time.timeScale <= 0f) return false;
+            GameCore.GameManager gm = GameCore.GameManager.Instance;
+            return gm == null || gm.State == GameCore.GameState.Playing;
         }
 
         private void ReadLookInput()

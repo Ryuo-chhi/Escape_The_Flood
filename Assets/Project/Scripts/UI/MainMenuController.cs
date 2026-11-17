@@ -33,6 +33,11 @@ namespace EscapeTheFlood.UI
 
         private void Awake()
         {
+            // Coming back from gameplay: make sure the menu is usable (cursor free and visible, time running)
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+            Time.timeScale = 1f;
+
             // Ensure default clean state: main buttons visible, modals closed
             ShowMainMenu();
         }

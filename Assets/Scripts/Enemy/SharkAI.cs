@@ -1239,6 +1239,8 @@ public class SharkAI : MonoBehaviour
 
     /// <summary>
     /// Checks whether the player is currently submerged or swimming in the water.
+    /// Tests just above the player's feet, so a player standing in flooded water on the floor counts
+    /// (a point below the feet would be under the floor and never count as in the water).
     /// </summary>
     public bool IsPlayerInWater()
     {
@@ -1246,11 +1248,11 @@ public class SharkAI : MonoBehaviour
 
         if (waterBody != null)
         {
-            return waterBody.IsPositionUnderwater(playerTransform.position - Vector3.up * playerWaterTolerance);
+            return waterBody.IsPositionUnderwater(playerTransform.position + Vector3.up * 0.05f);
         }
         if (WaterBody.Instance != null)
         {
-            return WaterBody.Instance.IsPositionUnderwater(playerTransform.position - Vector3.up * playerWaterTolerance);
+            return WaterBody.Instance.IsPositionUnderwater(playerTransform.position + Vector3.up * 0.05f);
         }
 
         float waterCeiling = GetWaterLevel() + playerWaterTolerance;
