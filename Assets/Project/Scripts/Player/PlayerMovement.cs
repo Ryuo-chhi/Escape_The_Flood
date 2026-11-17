@@ -19,31 +19,31 @@ namespace EscapeTheFlood.Player
 
         [Header("Ground Movement Settings")]
         [Tooltip("Horizontal walking/running speed on dry ground.")]
-        [SerializeField] private float moveSpeed = 5f;
+        [SerializeField] private float moveSpeed = 6.5f;
 
         [Tooltip("How quickly the character turns to face movement direction (degrees per second).")]
         [SerializeField] private float rotationSpeed = 720f;
 
         [Tooltip("Jump apex height in units.")]
-        [SerializeField] private float jumpHeight = 1.5f;
+        [SerializeField] private float jumpHeight = 2.8f;
 
         [Tooltip("Downward gravitational acceleration on land.")]
         [SerializeField] private float gravity = -18f;
 
         [Header("Swimming Settings")]
         [Tooltip("Horizontal movement speed while swimming.")]
-        [SerializeField] private float swimSpeed = 4.2f;
+        [SerializeField] private float swimSpeed = 5.0f;
 
         [Tooltip("Upward swim speed when pressing Space.")]
-        [SerializeField] private float swimAscendSpeed = 3.5f;
+        [SerializeField] private float swimAscendSpeed = 4.5f;
 
         [Tooltip("Downward dive speed when pressing Left Ctrl or C.")]
-        [SerializeField] private float swimDescendSpeed = 3.0f;
+        [SerializeField] private float swimDescendSpeed = 3.5f;
 
-        [Tooltip("Water depth above player feet to start swimming (0.3m = knee/waist depth).")]
+        [Tooltip("Water depth above player feet to start swimming (base unit: 0.3m). Auto-scales with player scale.")]
         [SerializeField] private float swimTriggerDepth = 0.3f;
 
-        [Tooltip("Height of player's head above feet for oxygen depletion (1.4m = adult head).")]
+        [Tooltip("Height of player's head above feet for oxygen depletion (base unit: 1.4m). Auto-scales with player scale.")]
         [SerializeField] private float headHeightOffset = 1.4f;
 
         [Tooltip("Forward tilt angle in degrees when swimming forward (e.g. 65° = horizontal swimming pose).")]
@@ -172,16 +172,37 @@ namespace EscapeTheFlood.Player
             if (WaterBody.Instance != null)
             {
                 currentWaterSurfaceY = WaterBody.Instance.CurrentWaterY;
+                Vector3 playerPos = transform.position;
+                Bounds waterBounds = WaterBody.Instance.GetWaterBounds();
 
-                float feetY = transform.position.y;
-                float headY = feetY + headHeightOffset;
+                // 1. Check if player is horizontally inside the water boundary (X and Z)
+                bool insideHorizontalBounds = playerPos.x >= waterBounds.min.x && playerPos.x <= waterBounds.max.x &&
+                                              playerPos.z >= waterBounds.min.z && playerPos.z <= waterBounds.max.z;
 
-                // Swim activates when water is at or above waist depth (feet + 0.3m)
-                bool inWater = (feetY + swimTriggerDepth) < currentWaterSurfaceY;
+                if (!insideHorizontalBounds)
+                {
+                    // Outside the water area (e.g. outside the building / in dry air): cannot swim!
+                    SetUnderwater(false);
+                    isHeadSubmerged = false;
+                    return;
+                }
+
+                // 2. Player is within water perimeter: check vertical submersion
+                float scaleY = Mathf.Max(0.1f, transform.lossyScale.y);
+                float feetY = playerPos.y;
+                float headY = feetY + (headHeightOffset * scaleY);
+
+                // Swimming mode only active when inside the water column
+                bool inWater = (feetY + (swimTriggerDepth * scaleY)) < currentWaterSurfaceY && feetY >= (waterBounds.min.y - 1f);
                 SetUnderwater(inWater);
 
-                // Breath depletes only when head is actually underwater
-                isHeadSubmerged = headY < currentWaterSurfaceY;
+                // Breath depletes only when head is actually below the surface
+                isHeadSubmerged = inWater && (headY < currentWaterSurfaceY);
+            }
+            else
+            {
+                SetUnderwater(false);
+                isHeadSubmerged = false;
             }
         }
 
@@ -264,12 +285,12 @@ namespace EscapeTheFlood.Player
 
         private void UpdateGroundMovement(Vector2 input, bool jumpPressed)
         {
-            Vector3 moveDirection = CalculateCameraRelativeDirection(input);
+            Vector3 targetDirection = CalculateCameraRelativeDirection(input);
 
-            // Turn horizontally towards heading
-            if (moveDirection.sqrMagnitude > 0.001f)
+            // Smooth rotation towards heading only when input is active
+            if (targetDirection.sqrMagnitude > 0.005f)
             {
-                float targetYaw = Mathf.Atan2(moveDirection.x, moveDirection.z) * Mathf.Rad2Deg;
+                float targetYaw = Mathf.Atan2(targetDirection.x, targetDirection.z) * Mathf.Rad2Deg;
                 currentYaw = Mathf.MoveTowardsAngle(currentYaw, targetYaw, rotationSpeed * Time.deltaTime);
             }
 
@@ -278,13 +299,15 @@ namespace EscapeTheFlood.Player
             currentRoll = Mathf.MoveTowards(currentRoll, 0f, 360f * Time.deltaTime);
             transform.rotation = Quaternion.Euler(currentPitch, currentYaw, currentRoll);
 
-            // Move CharacterController
-            characterController.Move(moveDirection * (moveSpeed * Time.deltaTime));
-
-            // Gravity & Jump
+            // Gravity & Jump handling
             if (characterController.isGrounded)
             {
-                if (verticalVelocity.y < 0f) verticalVelocity.y = -2f;
+                // Firm downward grounded stick force to prevent micro-bouncing on floor seams
+                if (verticalVelocity.y < 0f)
+                {
+                    verticalVelocity.y = -5f;
+                }
+
                 if (jumpPressed)
                 {
                     verticalVelocity.y = Mathf.Sqrt(2f * jumpHeight * -gravity);
@@ -292,31 +315,34 @@ namespace EscapeTheFlood.Player
             }
             else
             {
+                // Continuous in-air gravity
                 verticalVelocity.y += gravity * Time.deltaTime;
             }
 
-            characterController.Move(verticalVelocity * Time.deltaTime);
+            // Combined single Move call to eliminate collision sweep jitter
+            Vector3 finalMove = (targetDirection * moveSpeed) + verticalVelocity;
+            characterController.Move(finalMove * Time.deltaTime);
         }
 
         private void UpdateUnderwaterMovement(Vector2 input, bool ascend, bool descend)
         {
-            Vector3 moveDirection = CalculateCameraRelativeDirection(input);
-            bool isMoving = moveDirection.sqrMagnitude > 0.01f;
+            Vector3 targetDirection = CalculateCameraRelativeDirection(input);
+            bool isMoving = targetDirection.sqrMagnitude > 0.005f;
 
             // 1. Horizontal Heading
             if (isMoving)
             {
-                float targetYaw = Mathf.Atan2(moveDirection.x, moveDirection.z) * Mathf.Rad2Deg;
+                float targetYaw = Mathf.Atan2(targetDirection.x, targetDirection.z) * Mathf.Rad2Deg;
                 currentYaw = Mathf.MoveTowardsAngle(currentYaw, targetYaw, rotationSpeed * Time.deltaTime);
             }
 
-            // 2. PROCEDURAL SWIM ANIMATION (Tilts body forward horizontally like a real swimmer)
+            // 2. PROCEDURAL SWIM ANIMATION (Smooth body tilt forward)
             float targetPitch;
             float targetRoll;
 
             if (isMoving)
             {
-                // Active swimming: pitch body forward + stroke wobble
+                // Active swimming stroke
                 float strokeWave = Mathf.Sin(Time.time * 6f) * 6f;
                 float rollWave = Mathf.Cos(Time.time * 6f) * 4f;
 
@@ -325,7 +351,7 @@ namespace EscapeTheFlood.Player
             }
             else
             {
-                // Idle / treading water: upright floating bobbing
+                // Treading water
                 float treadWave = Mathf.Sin(Time.time * 3f) * 4f;
                 targetPitch = 15f + treadWave;
                 targetRoll = Mathf.Cos(Time.time * 2f) * 3f;
@@ -335,11 +361,8 @@ namespace EscapeTheFlood.Player
             currentRoll = Mathf.MoveTowards(currentRoll, targetRoll, 90f * Time.deltaTime);
             transform.rotation = Quaternion.Euler(currentPitch, currentYaw, currentRoll);
 
-            // 3. Horizontal swimming displacement
-            characterController.Move(moveDirection * (swimSpeed * Time.deltaTime));
-
-            // 4. Vertical 3D swimming (Space = Up, Ctrl/C = Down)
-            float targetVertSpeed = -0.2f; // subtle natural sinking/buoyancy
+            // 3. Vertical 3D swimming speed target
+            float targetVertSpeed = -0.3f; // subtle natural sinking/buoyancy
             if (ascend)
             {
                 targetVertSpeed = swimAscendSpeed;
@@ -349,16 +372,19 @@ namespace EscapeTheFlood.Player
                 targetVertSpeed = -swimDescendSpeed;
             }
 
-            verticalVelocity.y = Mathf.MoveTowards(verticalVelocity.y, targetVertSpeed, 14f * Time.deltaTime);
+            verticalVelocity.y = Mathf.MoveTowards(verticalVelocity.y, targetVertSpeed, 12f * Time.deltaTime);
 
             // Surface clamp: jump out if ascending near surface
             float currentFeetY = transform.position.y;
-            if (currentFeetY + headHeightOffset > currentWaterSurfaceY && ascend)
+            float scaledHeadOffset = headHeightOffset * Mathf.Max(0.1f, transform.lossyScale.y);
+            if (currentFeetY + scaledHeadOffset > currentWaterSurfaceY && ascend)
             {
                 verticalVelocity.y = Mathf.Sqrt(2f * jumpHeight * 0.8f * -gravity);
             }
 
-            characterController.Move(verticalVelocity * Time.deltaTime);
+            // Combined single Move call in water
+            Vector3 finalMove = (targetDirection * swimSpeed) + verticalVelocity;
+            characterController.Move(finalMove * Time.deltaTime);
         }
 
         private Vector3 CalculateCameraRelativeDirection(Vector2 input)

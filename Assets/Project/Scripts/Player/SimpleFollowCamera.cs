@@ -13,14 +13,16 @@ namespace EscapeTheFlood.Player
         [Tooltip("The target Transform to follow (Player).")]
         [SerializeField] private Transform target;
 
-        [Tooltip("Offset relative to the target's position.")]
-        [SerializeField] private Vector3 offset = new Vector3(0f, 2.5f, -4f);
+        [Tooltip("Offset relative to the target's position (framed for 2x player size).")]
+        [SerializeField] private Vector3 offset = new Vector3(0f, 3.8f, -6.5f);
 
-        [Tooltip("Follow smoothing factor (higher = snappier).")]
-        [SerializeField] private float smoothSpeed = 10f;
+        [Tooltip("Follow smoothing time in seconds (lower = snappier, 0.05-0.1 is buttery smooth).")]
+        [SerializeField] private float smoothTime = 0.08f;
 
-        [Tooltip("Look ahead height offset on the player.")]
-        [SerializeField] private float lookAtHeight = 1.2f;
+        [Tooltip("Look ahead height offset on the player (framed for 2x player height).")]
+        [SerializeField] private float lookAtHeight = 2.4f;
+
+        private Vector3 currentVelocity = Vector3.zero;
 
         public void SetTarget(Transform newTarget) => target = newTarget;
 
@@ -28,11 +30,18 @@ namespace EscapeTheFlood.Player
         {
             if (target == null) return;
 
+            // 1. Smoothly follow target position using SmoothDamp (completely eliminates frame-rate jitter)
             Vector3 desiredPosition = target.position + offset;
-            transform.position = Vector3.Lerp(transform.position, desiredPosition, smoothSpeed * Time.deltaTime);
+            transform.position = Vector3.SmoothDamp(transform.position, desiredPosition, ref currentVelocity, smoothTime);
 
+            // 2. Smoothly rotate towards target without snapping
             Vector3 lookTarget = target.position + Vector3.up * lookAtHeight;
-            transform.LookAt(lookTarget);
+            Vector3 directionToTarget = lookTarget - transform.position;
+            if (directionToTarget.sqrMagnitude > 0.001f)
+            {
+                Quaternion targetRotation = Quaternion.LookRotation(directionToTarget);
+                transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, 15f * Time.deltaTime);
+            }
         }
     }
 }
