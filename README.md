@@ -183,20 +183,32 @@ flowchart TD
 ```
 Escape_The_Flood/
 ├── Assets/
-│   ├── Scripts/               # C# Gameplay & Architecture Scripts
-│   │   ├── Core/              # Player, WaterBody, Shark, BuildingPlatform, Helicopter
-│   │   ├── Managers/          # GameManager, UIManager, AudioManager
-│   │   └── UI/                # HealthBar, BreathMeter, TimerDisplay
-│   ├── Prefabs/               # Prefabs for platforms, hazards, props
-│   ├── Materials/             # Shaders, water materials, furniture textures
-│   ├── Scenes/
-│   │   ├── MainLevel.unity    # Primary vertical climb level
-│   │   └── MainMenu.unity     # Title and game over screens
-│   ├── Settings/              # URP and project graphics settings
+│   ├── Project/                     # All of our own game files live here
+│   │   ├── Scenes/
+│   │   │   ├── GameMenu.unity       # Main menu (build index 0)
+│   │   │   ├── Main.unity           # The game level (build index 1)
+│   │   │   └── TestScenes/          # Per-member test scenes (not in the build)
+│   │   ├── Scripts/
+│   │   │   ├── GameCore/            # GameManager (states, pause, game over, victory, timer)
+│   │   │   ├── Player/              # PlayerMovement, ThirdPersonCamera, SimpleFollowCamera
+│   │   │   ├── Water/               # WaterBody, IWaterSubmergible
+│   │   │   ├── Enemy/               # SharkAI, SharkTailWave
+│   │   │   ├── Rescue/              # WinTrigger
+│   │   │   ├── Environment/         # (crumbling / floating platforms)
+│   │   │   └── UI/                  # MainMenuController, PlayerHUD (+ Editor/ builders)
+│   │   ├── Prefabs/                 # Player/, Water/, Enemy/, Environment/, Rescue/, UI/
+│   │   ├── Materials/               # Environment/, Water/, Enemy/ (incl. shader graphs)
+│   │   ├── Models/                  # Characters/ (shark), Environment/, Furniture/, Props/
+│   │   ├── Textures/                # Environment/, Water/, Characters/
+│   │   └── UI/                      # Fonts/, Icons/, Sprites/
+│   ├── LowPolyInteriorsFree/        # Third-party furniture pack (keep in place: its editor scripts use this path)
+│   ├── Male3/                       # Third-party player character
+│   ├── Alstra Infinite/             # Third-party fish/shark pack
+│   ├── Settings/                    # URP and project graphics settings
 │   └── InputSystem_Actions.inputactions
-├── Packages/                  # Unity Package manifest
-├── ProjectSettings/           # Unity project settings
-└── README.md                  # Project overview & documentation
+├── Packages/                        # Unity Package manifest
+├── ProjectSettings/                 # Unity project settings
+└── README.md                        # Project overview & documentation
 ```
 
 ---
@@ -215,6 +227,6 @@ Escape_The_Flood/
    * Ensure Editor version is set to `6000.3.8f1`.
 
 3. **Play the Scene:**
-   * In Unity Editor, navigate to `Assets/Scenes/`.
-   * Open `SampleScene.unity` (or `MainLevel.unity`).
+   * In Unity Editor, navigate to `Assets/Project/Scenes/`.
+   * Open `GameMenu.unity` to play the full game from the menu (or `Main.unity` to jump straight into the level).
    * Press the **Play** button (`Ctrl+P` / `Cmd+P`).

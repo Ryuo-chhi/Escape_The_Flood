@@ -4,25 +4,28 @@ This document defines the folder structure for the **Escape the Flood** Unity pr
 
 The goal is to keep project assets organized, make responsibilities clear, and help every team member find and manage files easily.
 
-All project-specific files should be stored inside `Assets/_Project/`.
+All project-specific files should be stored inside `Assets/Project/`. Third-party asset packs (`LowPolyInteriorsFree`, `Male3`, `Alstra Infinite`) stay in their own folders at the top of `Assets/`.
 
 ## 1. Complete folder structure
 
 ```text
 Assets/
 │
-└── _Project/
+└── Project/
     │
     ├── Scenes/
-    │   ├── MainMenu.unity
-    │   ├── EscapeBuilding.unity
-    │   ├── GameOver.unity
-    │   ├── Victory.unity
+    │   ├── GameMenu.unity
+    │   ├── Main.unity
     │   └── TestScenes/
     │       ├── GameCore_Test.unity
     │       ├── Environment_Test.unity
-    │       ├── WaterSystem_Test.unity
-    │       └── EnemyRescue_Test.unity
+    │       ├── Environment.unity
+    │       ├── Demo_FlatCompact.unity
+    │       ├── TestingBuilding.unity
+    │       ├── Basement_Blockout.unity
+    │       ├── Water_Test.unity
+    │       ├── Shark_Test.unity
+    │       └── Player_Test.unity
     │
     ├── Scripts/
     │   ├── GameCore/
@@ -77,17 +80,18 @@ Assets/
 
 | File / folder | Responsibility |
 |---|---|
-| `MainMenu.unity` | Main menu where players start the game. |
-| `EscapeBuilding.unity` | Main gameplay scene containing the building, player, water, enemies, and rescue system. |
-| `GameOver.unity` | Scene displayed when the player loses. |
-| `Victory.unity` | Scene displayed when the player successfully escapes. |
-| `TestScenes/` | Separate scenes where members develop and test features without affecting the main game. |
-| `GameCore_Test.unity` | Test game logic, player, and game states. |
-| `Environment_Test.unity` | Test building structures, furniture, and platforms. |
-| `WaterSystem_Test.unity` | Test rising water and underwater mechanics. |
-| `EnemyRescue_Test.unity` | Test shark AI and helicopter rescue mechanics. |
+| `GameMenu.unity` | Main menu where players start the game (build index 0). |
+| `Main.unity` | Main gameplay scene containing the building, player, water, shark, rescue pad, and the Pause / Game Over / Victory panels (build index 1). |
+| `TestScenes/` | Separate scenes where members develop and test features without affecting the main game. Not included in the build. |
+| `GameCore_Test.unity` | Test game logic, player, camera, and game states. |
+| `Environment_Test.unity`, `Environment.unity`, `Demo_FlatCompact.unity`, `TestingBuilding.unity`, `Basement_Blockout.unity` | Test building structures, furniture, and platforms. |
+| `Water_Test.unity` | Test rising water and underwater mechanics. |
+| `Shark_Test.unity` | Test shark AI. |
+| `Player_Test.unity` | Test player movement. |
 
-**Important:** Each member should work in their own test scene. Member 1 manages the final integration of `EscapeBuilding.unity`.
+Game Over and Victory are UI panels inside `Main.unity` (controlled by `GameManager`), not separate scenes.
+
+**Important:** Each member should work in their own test scene. Member 1 manages the final integration of `Main.unity`.
 
 ### B. `Scripts/` — C# programming logic
 
@@ -263,7 +267,7 @@ Prefabs/Environment/
     Combines the model, material, collider, and required components
     into a reusable object.
 
-Scenes/EscapeBuilding.unity
+Scenes/Main.unity
     The table prefab is placed into the actual game scene.
 ```
 
@@ -283,7 +287,7 @@ This is how the different folders work together to create one complete game obje
 
 ## 6. Recommended setup workflow
 
-1. Create the folder structure inside `Assets/_Project/`.
+1. Create the folder structure inside `Assets/Project/`.
 2. Configure Unity Version Control settings consistently across the team:
    - **Edit → Project Settings → Editor → Version Control Mode:** Visible Meta Files.
    - **Asset Serialization Mode:** Force Text.
@@ -292,7 +296,7 @@ This is how the different folders work together to create one complete game obje
 5. Each member creates or uses their assigned feature branch and works in their own test scene.
 6. Members commit and push their scripts, prefabs, models, materials, textures, and other required assets.
 7. Review and merge completed work into `develop`.
-8. Member 1 integrates and tests the systems in `EscapeBuilding.unity`.
+8. Member 1 integrates and tests the systems in `Main.unity`.
 
 **You do not need to create every script or asset file immediately.** Start by creating the folder hierarchy, then add files as each feature is developed.
 
