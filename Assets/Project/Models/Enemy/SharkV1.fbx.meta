@@ -1,18 +1,11 @@
 fileFormatVersion: 2
-guid: ca38d4485fce19f4aa0d3d7bdd8b6cf2
-AssetOrigin:
-  serializedVersion: 1
-  productId: 202232
-  packageName: Fish - PolyPack
-  packageVersion: 1.0
-  assetPath: Assets/Alstra Infinite/Fish - PolyPack/Models/SharkV1.fbx
-  uploadId: 450755
+guid: 21e8832359b56a345a61120eab1a2d80
 ModelImporter:
   serializedVersion: 24200
   internalIDToNameTable: []
   externalObjects: {}
   materials:
-    materialImportMode: 1
+    materialImportMode: 2
     materialName: 0
     materialSearch: 1
     materialLocation: 1
@@ -37,10 +30,14 @@ ModelImporter:
     extraExposedTransformPaths: []
     extraUserProperties: []
     clipAnimations: []
-    isReadable: 1
+    isReadable: 0
   meshes:
     lODScreenPercentages: []
+<<<<<<< HEAD:Assets/Alstra Infinite/Fish - PolyPack/Models/SharkV1.fbx.meta
+    globalScale: 1
+=======
     globalScale: 1.5
+>>>>>>> 3ee23fd2bfad2c675f29ea3d08009d4046c02e92:Assets/Project/Models/Enemy/SharkV1.fbx.meta
     meshCompression: 0
     addColliders: 0
     useSRGBMaterialColor: 1
@@ -50,7 +47,7 @@ ModelImporter:
     importBlendShapes: 1
     importCameras: 1
     importLights: 1
-    nodeNameCollisionStrategy: 0
+    nodeNameCollisionStrategy: 1
     fileIdsGeneration: 2
     swapUVChannels: 0
     generateSecondaryUV: 0
@@ -71,7 +68,7 @@ ModelImporter:
     secondaryUVAngleDistortion: 8
     secondaryUVAreaDistortion: 15.000001
     secondaryUVHardAngle: 88
-    secondaryUVMarginMethod: 0
+    secondaryUVMarginMethod: 1
     secondaryUVMinLightmapResolution: 40
     secondaryUVMinObjectScale: 1
     secondaryUVPackMargin: 4
@@ -98,7 +95,11 @@ ModelImporter:
     armStretch: 0.05
     legStretch: 0.05
     feetSpacing: 0
+<<<<<<< HEAD:Assets/Alstra Infinite/Fish - PolyPack/Models/SharkV1.fbx.meta
+    globalScale: 1
+=======
     globalScale: 0.015
+>>>>>>> 3ee23fd2bfad2c675f29ea3d08009d4046c02e92:Assets/Project/Models/Enemy/SharkV1.fbx.meta
     rootMotionBoneName: 
     hasTranslationDoF: 0
     hasExtraRoot: 0
@@ -108,9 +109,9 @@ ModelImporter:
   animationType: 2
   humanoidOversampling: 1
   avatarSetup: 0
-  addHumanoidExtraRootOnlyWhenUsingAvatar: 0
-  importBlendShapeDeformPercent: 0
-  remapMaterialsIfMaterialImportModeIsNone: 1
+  addHumanoidExtraRootOnlyWhenUsingAvatar: 1
+  importBlendShapeDeformPercent: 1
+  remapMaterialsIfMaterialImportModeIsNone: 0
   additionalBone: 0
   userData: 
   assetBundleName: 
