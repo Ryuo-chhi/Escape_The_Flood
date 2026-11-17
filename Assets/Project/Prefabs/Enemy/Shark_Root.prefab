@@ -162,7 +162,7 @@ MonoBehaviour:
   waypoints: []
   cruiseSpeed: 3
   minSpeed: 1
-  minTurnRadiusMultiplier: 1.2
+  minTurnRadiusMultiplier: 0.8
   directionSmoothTime: 0.25
   speedAcceleration: 3.5
   drawDebugRays: 1
@@ -179,10 +179,10 @@ MonoBehaviour:
   pitchSmoothTime: 0.2
   playerTag: Player
   playerTransform: {fileID: 0}
-  detectionRadius: 5
-  loseSightRadius: 8
+  detectionRadius: 8
+  loseSightRadius: 12
   chaseSpeed: 6.5
-  chaseTurnSpeed: 90
+  chaseTurnSpeed: 120
   waterBody: {fileID: 0}
   waterLevelTransform: {fileID: 0}
   waterSurfaceY: 0
