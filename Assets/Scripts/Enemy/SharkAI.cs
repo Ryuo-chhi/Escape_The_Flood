@@ -30,12 +30,30 @@ public class SharkAI : MonoBehaviour
     [Tooltip("Waypoints used only as optional fallback if useRandomWander is false.")]
     [SerializeField] private Transform[] waypoints;
 
+    [Header("Fish-Like Turning & Movement (A-D)")]
+    [FormerlySerializedAs("speed")]
     [FormerlySerializedAs("swimSpeed")]
-    [Tooltip("Forward swimming speed along transform.forward in units/sec during patrol.")]
-    [SerializeField] private float speed = 3.5f;
+    [Tooltip("Normal forward cruising speed in units/sec during straight swimming.")]
+    [SerializeField] private float cruiseSpeed = 3.0f;
+
+    [Tooltip("Minimum swimming speed in units/sec when executing a sharp turn.")]
+    [SerializeField] private float minSpeed = 1.0f;
+
+    [Tooltip("Multiplier on shark body length to define minimum turning radius (typically 1.0 to 1.5). Lower = tighter turns.")]
+    [SerializeField] private float minTurnRadiusMultiplier = 1.2f;
+
+    [Tooltip("Smooth time in seconds for steering direction changes (0.2 to 0.4s). Higher = smoother / less twitchy.")]
+    [Range(0.05f, 1.0f)]
+    [SerializeField] private float directionSmoothTime = 0.25f;
+
+    [Tooltip("Acceleration and deceleration rate in units/s^2 when adapting speed into turns.")]
+    [SerializeField] private float speedAcceleration = 3.5f;
+
+    [Tooltip("Draws debug rays in Scene view showing true forward heading (cyan) vs actual movement velocity (yellow).")]
+    [SerializeField] private bool drawDebugRays = true;
 
     [FormerlySerializedAs("turnSpeed")]
-    [Tooltip("Turning rate in degrees per second during patrol.")]
+    [Tooltip("Legacy fallback turn speed in degrees per second (now dynamically computed from body length and speed).")]
     [SerializeField] private float turnSpeed = 60.0f;
 
     [FormerlySerializedAs("waypointTolerance")]
@@ -114,10 +132,10 @@ public class SharkAI : MonoBehaviour
     [SerializeField] private Transform playerTransform;
 
     [Tooltip("Radius within which the shark detects a submerged player.")]
-    [SerializeField] private float detectionRadius = 12.0f;
+    [SerializeField] private float detectionRadius = 5.0f;
 
     [Tooltip("Distance at which the shark loses the player and returns to patrol.")]
-    [SerializeField] private float loseSightRadius = 18.0f;
+    [SerializeField] private float loseSightRadius = 8.0f;
 
     [Tooltip("Swimming speed when chasing the player.")]
     [SerializeField] private float chaseSpeed = 6.5f;
@@ -176,8 +194,8 @@ public class SharkAI : MonoBehaviour
 
     [Header("Banking")]
     [FormerlySerializedAs("maxBankAngle")]
-    [Tooltip("Maximum roll angle in degrees on local Z proportional to turning rate.")]
-    [SerializeField] private float bankAmount = 15.0f;
+    [Tooltip("Maximum roll angle in degrees on local Z proportional to turning rate (typically 10-15 degrees).")]
+    [SerializeField] private float bankAmount = 12.0f;
 
     [Tooltip("Smooth damp time for banking roll.")]
     [SerializeField] private float bankSmoothTime = 0.25f;
@@ -215,6 +233,15 @@ public class SharkAI : MonoBehaviour
     private float pitchVelocity = 0.0f;
     private float verticalVelocity = 0.0f;
     private Quaternion headingRotation;
+
+    // Fish-like turning & movement state
+    private float bodyLength = 1.8f;
+    private float minTurnRadius = 2.16f;
+    private float currentMoveSpeed = 3.0f;
+    private Vector3 smoothedDirection = Vector3.forward;
+    private Vector3 previousPosition;
+    private Vector3 measuredVelocity;
+    private Rigidbody rootRb;
 
     // Attack & Cooldown timers
     private float attackCooldownTimer = 0.0f;
@@ -306,7 +333,7 @@ public class SharkAI : MonoBehaviour
         }
 
         // 6. Ensure a kinematic Rigidbody exists on moveTransform for proper collision/trigger queries without physics gravity
-        Rigidbody rootRb = moveTransform.GetComponent<Rigidbody>();
+        rootRb = moveTransform.GetComponent<Rigidbody>();
         if (rootRb == null)
         {
             rootRb = moveTransform.gameObject.AddComponent<Rigidbody>();
@@ -338,6 +365,14 @@ public class SharkAI : MonoBehaviour
             Debug.LogWarning("[SharkAI] Shark was parented under WaterBody! Unparenting to prevent inheriting water scale and position.", this);
             moveTransform.SetParent(null);
         }
+
+        // Initialize fish body dimensions and movement state
+        CalculateBodyDimensions();
+        currentMoveSpeed = cruiseSpeed;
+        previousPosition = moveTransform.position;
+        Vector3 initForward = moveTransform.forward;
+        initForward.y = 0.0f;
+        smoothedDirection = (initForward.sqrMagnitude > 0.001f) ? initForward.normalized : Vector3.forward;
 
         // Compute initial random wander target inside water volume safe bounds
         PickNewPatrolTarget();
@@ -421,14 +456,47 @@ public class SharkAI : MonoBehaviour
         }
     }
 
+    private void CalculateBodyDimensions()
+    {
+        float length = 0f;
+        if (sharkRenderer != null)
+        {
+            Vector3 size = sharkRenderer.bounds.size;
+            length = Mathf.Max(size.x, size.z);
+        }
+
+        if (length <= 0.1f)
+        {
+            BoxCollider box = GetComponentInChildren<BoxCollider>();
+            if (box != null)
+            {
+                Vector3 size = Vector3.Scale(box.size, box.transform.lossyScale);
+                length = Mathf.Max(size.x, size.z);
+            }
+        }
+
+        if (length > 0.1f)
+        {
+            bodyLength = length;
+        }
+        else
+        {
+            bodyLength = 1.8f;
+        }
+
+        minTurnRadius = bodyLength * Mathf.Max(minTurnRadiusMultiplier, 0.2f);
+        Debug.Log($"[SharkAI] Body Length: {bodyLength:F2}m | Initial Min Turn Radius: {minTurnRadius:F2}m", this);
+    }
+
     /// <summary>
     /// Checks for obstacles directly ahead using SphereCast (radius ~ shark half-width, distance ~5 units).
-    /// Steers away toward the hit normal's reflected direction on the XZ plane, slows down slightly,
+    /// Steers away toward the hit normal's reflected direction on the XZ plane,
     /// and draws a debug ray in the Scene view (green = clear, red = hit).
     /// </summary>
-    private bool CheckForwardObstacleAvoidance(out Vector3 avoidDirection)
+    private bool CheckForwardObstacleAvoidance(out Vector3 avoidDirection, out float hitDistance)
     {
         avoidDirection = Vector3.zero;
+        hitDistance = forwardAvoidanceDistance;
         if (moveTransform == null) return false;
 
         Vector3 origin = moveTransform.position;
@@ -466,6 +534,7 @@ public class SharkAI : MonoBehaviour
 
         // Draw forward ray in Scene view (Green = clear, Red = obstacle hit)
         float rayDist = hit ? hitInfo.distance : forwardAvoidanceDistance;
+        hitDistance = rayDist;
         Debug.DrawRay(origin, forwardDir * rayDist, hit ? Color.red : Color.green);
 
         if (hit)
@@ -502,6 +571,64 @@ public class SharkAI : MonoBehaviour
         }
 
         return false;
+    }
+
+    private bool CheckForwardObstacleAvoidance(out Vector3 avoidDirection)
+    {
+        return CheckForwardObstacleAvoidance(out avoidDirection, out _);
+    }
+
+    /// <summary>
+    /// Combines the goal target direction with weighted obstacle avoidance.
+    /// Closeness scales avoidance weight (gentle nudge far away, strong turn only when close).
+    /// </summary>
+    private Vector3 ComputeDesiredDirection(Vector3 targetDirectionXZ, out float obstacleCloseness)
+    {
+        targetDirectionXZ.y = 0.0f;
+        Vector3 baseDir = (targetDirectionXZ.sqrMagnitude > 0.0001f) ? targetDirectionXZ.normalized : moveTransform.forward;
+        baseDir.y = 0.0f;
+        baseDir.Normalize();
+
+        obstacleCloseness = 0.0f;
+
+        if (CheckForwardObstacleAvoidance(out Vector3 avoidDir, out float hitDistance))
+        {
+            // 0 at max distance (~5m), 1 when touching
+            float normalizedClose = 1.0f - Mathf.Clamp01(hitDistance / Mathf.Max(forwardAvoidanceDistance, 0.1f));
+            obstacleCloseness = normalizedClose;
+
+            // Quadratic weighting: small nudge far away, strong turn only when close
+            float avoidWeight = normalizedClose * normalizedClose;
+
+            Vector3 blended = Vector3.Lerp(baseDir, avoidDir, avoidWeight);
+            if (blended.sqrMagnitude > 0.001f)
+            {
+                return blended.normalized;
+            }
+            return avoidDir;
+        }
+
+        return baseDir;
+    }
+
+    /// <summary>
+    /// Smooths the desired direction via Slerp so the shark doesn't snap or swing wildly.
+    /// </summary>
+    private void UpdateSmoothedDirection(Vector3 rawDesiredDirection)
+    {
+        rawDesiredDirection.y = 0.0f;
+        if (rawDesiredDirection.sqrMagnitude < 0.0001f) return;
+        rawDesiredDirection.Normalize();
+
+        if (smoothedDirection.sqrMagnitude < 0.001f)
+        {
+            smoothedDirection = rawDesiredDirection;
+        }
+        else
+        {
+            float slerpFactor = 1.0f - Mathf.Exp(-Time.deltaTime / Mathf.Max(directionSmoothTime, 0.05f));
+            smoothedDirection = Vector3.Slerp(smoothedDirection, rawDesiredDirection, slerpFactor).normalized;
+        }
     }
 
     /// <summary>
@@ -585,7 +712,7 @@ public class SharkAI : MonoBehaviour
         toTargetXZ.y = 0.0f;
         float distanceXZ = toTargetXZ.magnitude;
 
-        // 4. Arrive check (distance < ~1.5 in XZ) OR retarget timer (~6s)
+        // 4. Arrive check (distance < arrivalDistance in XZ) OR retarget timer (~6s)
         if (distanceXZ <= arrivalDistance || retargetTimer <= 0f)
         {
             PickNewPatrolTarget();
@@ -593,30 +720,21 @@ public class SharkAI : MonoBehaviour
             toTargetXZ.y = 0.0f;
         }
 
-        // 5. Look-ahead obstacle avoidance check
-        Vector3 steerDirection = toTargetXZ;
-        float currentMoveSpeed = speed;
-        float currentTurnRate = turnSpeed;
+        // 5. Look-ahead obstacle avoidance with gentle distance-based weighting
+        Vector3 rawDesired = ComputeDesiredDirection(toTargetXZ, out float obstacleCloseness);
 
-        if (CheckForwardObstacleAvoidance(out Vector3 avoidDir))
+        // Pick a new target only if obstacle is right in front (prevents thrashing)
+        if (obstacleCloseness > 0.75f && avoidanceRetargetCooldown <= 0f)
         {
-            steerDirection = avoidDir;
-            currentMoveSpeed = speed * obstacleSlowdown;
-            currentTurnRate = turnSpeed * obstacleTurnMultiplier;
-
-            // Pick a new target if hitting obstacle
-            if (avoidanceRetargetCooldown <= 0f)
-            {
-                PickNewPatrolTarget();
-                avoidanceRetargetCooldown = 1.0f;
-            }
+            PickNewPatrolTarget();
+            avoidanceRetargetCooldown = 1.0f;
         }
 
-        // 6. Steer on XZ plane with Quaternion.RotateTowards and smooth pitch tilt
-        RotateTowardsTargetXZ(steerDirection, currentTurnRate);
+        // 6. Smooth the desired direction (no snapping)
+        UpdateSmoothedDirection(rawDesired);
 
-        // 7. Move forward along transform.forward
-        moveTransform.position += moveTransform.forward * (currentMoveSpeed * Time.deltaTime);
+        // 7. Fish-like turning & movement along facing direction
+        ExecuteFishMovement(cruiseSpeed, minSpeed);
 
         // 8. Handle depth separately with vertical obstacle avoidance
         float targetY = GetCurrentPatrolTargetY();
@@ -652,23 +770,12 @@ public class SharkAI : MonoBehaviour
             return;
         }
 
-        Vector3 steerDirection = toPlayerXZ;
-        float currentMoveSpeed = chaseSpeed;
-        float currentTurnRate = chaseTurnSpeed;
+        // Compute desired direction towards player with obstacle avoidance
+        Vector3 rawDesired = ComputeDesiredDirection(toPlayerXZ, out _);
+        UpdateSmoothedDirection(rawDesired);
 
-        // Obstacle avoidance during chase
-        if (CheckForwardObstacleAvoidance(out Vector3 avoidDir))
-        {
-            steerDirection = avoidDir;
-            currentMoveSpeed = chaseSpeed * obstacleSlowdown;
-            currentTurnRate = chaseTurnSpeed * obstacleTurnMultiplier;
-        }
-
-        // Steer toward player on XZ plane
-        RotateTowardsTargetXZ(steerDirection, currentTurnRate);
-
-        // Move forward along transform.forward at chase speed
-        moveTransform.position += moveTransform.forward * (currentMoveSpeed * Time.deltaTime);
+        // Chase at higher speeds
+        ExecuteFishMovement(chaseSpeed, Mathf.Max(minSpeed, 2.0f));
 
         // Handle depth separately: smoothly Lerp shark Y toward player Y (bounded inside water)
         float targetY = Mathf.Min(playerTransform.position.y, GetMaxAllowedY());
@@ -684,9 +791,29 @@ public class SharkAI : MonoBehaviour
     private void HandleAttackState()
     {
         lungeTimer -= Time.deltaTime;
+        float dt = Mathf.Max(Time.deltaTime, 0.0001f);
 
-        // Forward burst lunge along transform.forward
-        moveTransform.position += moveTransform.forward * (lungeSpeed * Time.deltaTime);
+        // Forward burst lunge strictly along transform.forward
+        moveTransform.position += moveTransform.forward * (lungeSpeed * dt);
+
+        if (rootRb != null && !rootRb.isKinematic)
+        {
+#if UNITY_6000_0_OR_NEWER
+            rootRb.linearVelocity = moveTransform.forward * lungeSpeed;
+#else
+            rootRb.velocity = moveTransform.forward * lungeSpeed;
+#endif
+        }
+
+        Vector3 currentPos = moveTransform.position;
+        measuredVelocity = (currentPos - previousPosition) / dt;
+        previousPosition = currentPos;
+
+        if (drawDebugRays)
+        {
+            Debug.DrawRay(moveTransform.position, moveTransform.forward * 3.0f, Color.cyan);
+            Debug.DrawRay(moveTransform.position + Vector3.up * 0.05f, measuredVelocity, Color.yellow);
+        }
 
         // When lunge completes, return to chase while on cooldown
         if (lungeTimer <= 0f)
@@ -929,53 +1056,101 @@ public class SharkAI : MonoBehaviour
     #region Turning & Orientation
 
     /// <summary>
-    /// Steers the shark on the XZ plane with Quaternion.RotateTowards,
-    /// applies smooth pitch tilting when ascending/descending, banking roll,
-    /// and preserves child model visual offset.
+    /// Executes fish-like steering and movement:
+    /// A. Always moves strictly along the forward facing direction (zero sideways slip).
+    /// B. Limits turning radius using body length: maxTurnRate (deg/s) = (speed / minTurnRadius) * Rad2Deg.
+    /// C. Slows down into sharp turns (interpolating between minSpeed and cruiseSpeed based on turn angle).
+    /// D. Steers toward smoothedDirection (no snapping).
+    /// E. Banks visual mesh child into the turn (up to bankAmount degrees).
     /// </summary>
-    private void RotateTowardsTargetXZ(Vector3 directionXZ, float currentTurnRate)
+    private void ExecuteFishMovement(float targetCruiseSpeed, float targetMinSpeed)
     {
-        directionXZ.y = 0.0f;
-        if (directionXZ.sqrMagnitude < 0.0001f) return;
-
-        // Base target heading on horizontal plane only
-        Quaternion targetRotation = Quaternion.LookRotation(directionXZ.normalized, Vector3.up);
-
         float dt = Mathf.Max(Time.deltaTime, 0.0001f);
-        headingRotation = Quaternion.RotateTowards(headingRotation, targetRotation, currentTurnRate * dt);
 
-        // Compute yaw delta for banking
+        // Dynamically update minTurnRadius to allow live Inspector tweaking
+        minTurnRadius = bodyLength * Mathf.Max(minTurnRadiusMultiplier, 0.2f);
+
+        // 1. Angle between forward and desired direction on XZ plane
+        Vector3 forwardXZ = moveTransform.forward;
+        forwardXZ.y = 0.0f;
+        if (forwardXZ.sqrMagnitude > 0.0001f) forwardXZ.Normalize();
+        else forwardXZ = Vector3.forward;
+
+        float turnAngle = Vector3.Angle(forwardXZ, smoothedDirection);
+
+        // 2. Slow down when turn is sharp: (1 - angle / 90 clamped to 0..1)
+        float straightFactor = Mathf.Clamp01(1.0f - (turnAngle / 90.0f));
+        float desiredSpeed = Mathf.Lerp(targetMinSpeed, targetCruiseSpeed, straightFactor);
+
+        // Smooth speed changes gradually
+        currentMoveSpeed = Mathf.MoveTowards(currentMoveSpeed, desiredSpeed, speedAcceleration * dt);
+
+        // 3. Dynamic max turn rate: maxTurnRate (deg/s) = (currentSpeed / minTurnRadius) * Rad2Deg
+        float effectiveRadius = Mathf.Max(minTurnRadius, 0.3f);
+        float maxTurnRateDeg = (currentMoveSpeed / effectiveRadius) * Mathf.Rad2Deg;
+
+        // 4. Rotate first towards smoothed direction using max turn rate
+        Quaternion targetRotation = Quaternion.LookRotation(smoothedDirection, Vector3.up);
+        headingRotation = Quaternion.RotateTowards(headingRotation, targetRotation, maxTurnRateDeg * dt);
+
+        // Compute yaw delta for visual banking
         float currentYaw = headingRotation.eulerAngles.y;
         float yawDelta = Mathf.DeltaAngle(previousHeadingYaw, currentYaw);
         previousHeadingYaw = currentYaw;
 
         float angularVelocity = yawDelta / dt;
-        float maxTurnRate = Mathf.Max(currentTurnRate, 1.0f);
-        float rawTurn = Mathf.Clamp(angularVelocity / maxTurnRate, -1.0f, 1.0f);
+        float normalizedTurn = Mathf.Clamp(angularVelocity / Mathf.Max(maxTurnRateDeg, 1.0f), -1.0f, 1.0f);
+        currentTurn = Mathf.SmoothDamp(currentTurn, normalizedTurn, ref turnVelocity, 0.15f);
 
-        currentTurn = Mathf.SmoothDamp(currentTurn, rawTurn, ref turnVelocity, turnSmoothTime);
-
-        // Roll on local Z proportional to turn rate
+        // Roll into the turn on the visual mesh
         float targetBankAngle = Mathf.Clamp(-currentTurn * bankAmount, -35.0f, 35.0f);
         currentBank = Mathf.SmoothDamp(currentBank, targetBankAngle, ref bankVelocity, bankSmoothTime);
 
-        // Pitch tilt when swimming up or down
+        // Pitch tilt when ascending or descending
         float targetPitchAngle = 0.0f;
         if (allowPitchTilt)
         {
-            // Negative pitch points nose UP when ascending (verticalVelocity > 0)
-            // Positive pitch points nose DOWN when descending (verticalVelocity < 0)
             targetPitchAngle = Mathf.Clamp(-verticalVelocity * pitchStrength, -maxPitchAngle, maxPitchAngle);
         }
         currentPitch = Mathf.SmoothDamp(currentPitch, targetPitchAngle, ref pitchVelocity, pitchSmoothTime);
 
-        // Apply rotation to moving root (Yaw * Pitch * Bank)
-        moveTransform.rotation = headingRotation * Quaternion.Euler(currentPitch, 0.0f, currentBank);
+        // 5. Apply rotations: Root stays on XZ steering plane (pure yaw)
+        moveTransform.rotation = headingRotation;
 
-        // Preserve model visual offset (e.g. Y = 90) on child object
-        if (hasModelOffset && sharkModel != null && sharkModel != moveTransform)
+        // Visual child mesh gets pitch, bank, and original model rotation offset
+        if (sharkModel != null && sharkModel != moveTransform)
         {
-            sharkModel.localRotation = initialModelLocalRotation;
+            Quaternion visualTilt = Quaternion.Euler(currentPitch, 0.0f, currentBank);
+            sharkModel.localRotation = visualTilt * initialModelLocalRotation;
+        }
+        else
+        {
+            moveTransform.rotation = headingRotation * Quaternion.Euler(currentPitch, 0.0f, currentBank);
+        }
+
+        // 6. Move forward strictly along facing direction (zero sideways slip)
+        Vector3 moveStep = moveTransform.forward * (currentMoveSpeed * dt);
+        moveTransform.position += moveStep;
+
+        if (rootRb != null && !rootRb.isKinematic)
+        {
+#if UNITY_6000_0_OR_NEWER
+            rootRb.linearVelocity = moveTransform.forward * currentMoveSpeed;
+#else
+            rootRb.velocity = moveTransform.forward * currentMoveSpeed;
+#endif
+        }
+
+        // 7. Measure actual velocity and draw debug rays
+        Vector3 currentPos = moveTransform.position;
+        measuredVelocity = (currentPos - previousPosition) / dt;
+        previousPosition = currentPos;
+
+        if (drawDebugRays)
+        {
+            // Cyan ray = forward heading, Yellow ray = actual velocity (overlap = zero slide)
+            Debug.DrawRay(moveTransform.position, moveTransform.forward * 3.0f, Color.cyan);
+            Debug.DrawRay(moveTransform.position + Vector3.up * 0.05f, measuredVelocity, Color.yellow);
         }
     }
 
@@ -985,6 +1160,9 @@ public class SharkAI : MonoBehaviour
 
     private void UpdateTailAnimation()
     {
+        // Increase tail wave speed & amplitude slightly when turning for a lively fish kick
+        float turnTailBoost = 1.0f + Mathf.Abs(currentTurn) * 0.35f;
+
         // 1. CPU Procedural Tail Wave
         if (tailWave != null)
         {
@@ -995,17 +1173,20 @@ public class SharkAI : MonoBehaviour
                 {
                     case SharkState.Patrol:
                         tailWave.swim = 1.0f;
-                        tailWave.speed = idleWaveSpeed;
+                        tailWave.speed = idleWaveSpeed * turnTailBoost;
+                        tailWave.amplitude = idleAmplitude * turnTailBoost;
                         break;
 
                     case SharkState.Chase:
                         tailWave.swim = 1.2f;
-                        tailWave.speed = maxWaveSpeed;
+                        tailWave.speed = maxWaveSpeed * turnTailBoost;
+                        tailWave.amplitude = maxAmplitude * turnTailBoost;
                         break;
 
                     case SharkState.Attack:
                         tailWave.swim = 1.4f;
                         tailWave.speed = maxWaveSpeed * 1.25f;
+                        tailWave.amplitude = maxAmplitude * 1.2f;
                         break;
                 }
             }
@@ -1014,10 +1195,9 @@ public class SharkAI : MonoBehaviour
         // 2. Shader Graph Fallback
         if (sharkRenderer != null)
         {
-            float currentSpeed = (currentState == SharkState.Chase) ? chaseSpeed : ((currentState == SharkState.Attack) ? lungeSpeed : speed);
-            float currentWaveFreq = (currentState == SharkState.Patrol) ? idleWaveSpeed : maxWaveSpeed;
+            float activeWaveFreq = (currentState == SharkState.Patrol) ? (idleWaveSpeed * turnTailBoost) : (maxWaveSpeed * turnTailBoost);
 
-            accumulatedPhase += currentWaveFreq * Time.deltaTime;
+            accumulatedPhase += activeWaveFreq * Time.deltaTime;
             if (accumulatedPhase > 628.3185f)
             {
                 accumulatedPhase -= 628.3185f;
@@ -1026,7 +1206,7 @@ public class SharkAI : MonoBehaviour
             sharkRenderer.GetPropertyBlock(propertyBlock);
             propertyBlock.SetFloat(PhasePropId, accumulatedPhase);
             propertyBlock.SetFloat(SwimSpeedPropId, (currentState == SharkState.Patrol) ? 0.5f : 1.0f);
-            propertyBlock.SetFloat(AmplitudePropId, useCpuTailWave ? 0f : (currentState == SharkState.Patrol ? idleAmplitude : maxAmplitude));
+            propertyBlock.SetFloat(AmplitudePropId, useCpuTailWave ? 0f : (currentState == SharkState.Patrol ? idleAmplitude : maxAmplitude) * turnTailBoost);
             propertyBlock.SetFloat(TurnPropId, currentTurn);
             sharkRenderer.SetPropertyBlock(propertyBlock);
         }
@@ -1094,6 +1274,16 @@ public class SharkAI : MonoBehaviour
         // Forward heading ray
         Gizmos.color = Color.blue;
         Gizmos.DrawRay(t.position, t.forward * 3.5f);
+
+        // Smoothed Desired Direction & Min Turn Radius (Cyan)
+        if (drawDebugRays)
+        {
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawRay(t.position, smoothedDirection * 3.5f);
+
+            Gizmos.color = new Color(0f, 1f, 1f, 0.35f);
+            Gizmos.DrawWireSphere(t.position, minTurnRadius);
+        }
 
         // Arrival distance
         Gizmos.color = Color.green;

@@ -160,9 +160,14 @@ MonoBehaviour:
   currentState: 0
   useRandomWander: 1
   waypoints: []
-  speed: 3.5
+  cruiseSpeed: 3
+  minSpeed: 1
+  minTurnRadiusMultiplier: 1.2
+  directionSmoothTime: 0.25
+  speedAcceleration: 3.5
+  drawDebugRays: 1
   turnSpeed: 90
-  arrivalDistance: 2
+  arrivalDistance: 1.5
   retargetInterval: 6
   depthLerpSpeed: 2
   minPatrolDepth: 0.15
@@ -174,8 +179,8 @@ MonoBehaviour:
   pitchSmoothTime: 0.2
   playerTag: Player
   playerTransform: {fileID: 0}
-  detectionRadius: 12
-  loseSightRadius: 18
+  detectionRadius: 5
+  loseSightRadius: 8
   chaseSpeed: 6.5
   chaseTurnSpeed: 90
   waterBody: {fileID: 0}
@@ -195,7 +200,7 @@ MonoBehaviour:
   tailWave: {fileID: 0}
   idleWaveSpeed: 6
   maxWaveSpeed: 10
-  bankAmount: 15
+  bankAmount: 12
   bankSmoothTime: 0.25
   sharkRenderer: {fileID: 0}
   idleAmplitude: 0.12
